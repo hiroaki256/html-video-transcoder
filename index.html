@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>WebCodec Transcoder</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script
+        id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { primary: "#FAC638", "background-light": "#f8f8f5", "background-dark": "#231e0f" }, fontFamily: { display: "Space Grotesk" }, borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" } } } };</script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .peer:checked~.modal-backdrop {
+            display: block;
+        }
+
+        .peer:checked~.modal-backdrop .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        body {
+            min-height: max(884px, 100dvh);
+        }
+
+        .drag-active {
+            border: 2px dashed #FAC638;
+            background-color: rgba(250, 198, 56, 0.1);
+        }
+    </style>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+
+    <!-- Worker Script Definition (Inline) -->
+    <script id="worker-script" type="javascript/worker">
+    try {
+        importScripts('https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js');
+        importScripts('https://cdn.jsdelivr.net/npm/mp4-muxer@1.0.3/build/mp4-muxer.min.js');
+        importScripts('https://cdn.jsdelivr.net/npm/webm-muxer@1.0.0/build/webm-muxer.min.js');
+    } catch (e) {
+        self.postMessage({ type: 'error', error: 'ライブラリの読み込みに失敗しました。: ' + e.message });
+    }
+
+    let mp4boxfile = null;
+
+    self.onmessage = async (e) => {
+        const { type, data } = e.data;
+        try {
+            if (type === 'inspect') {
+                await inspectFile(data.file);
+            } else if (type === 'start') {
+                await startTranscode(data);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            self.postMessage({ type: 'error', error: errorMessage });
+        }
+    };
+
+    // ファイル情報を解析する関数
+    async function inspectFile(file) {
+        if (mp4boxfile) {
+            mp4boxfile.flush();
+            mp4boxfile = null;
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        arrayBuffer.fileStart = 0;
+        mp4boxfile = MP4Box.createFile();
+
+        return new Promise((resolve, reject) => {
+            mp4boxfile.onError = (e) => {
+                const errorMessage = "MP4Box Parse Error: " + (e instanceof Error ? e.message : String(e));
+                self.postMessage({ type: 'error', error: errorMessage });
+                reject(new Error(errorMessage));
+            };
+
+            mp4boxfile.onReady = (info) => {
+                const videoTrack = info.videoTracks[0];
+                const audioTrack = info.audioTracks[0];
+
+                const result = {
+                    container: file.type || 'Unknown',
+                    duration: info.duration / info.timescale,
+                    fileSize: file.size,
+                    video: videoTrack ? {
+                        codec: videoTrack.codec,
+                        width: videoTrack.video.width,
+                        height: videoTrack.video.height,
+                        bitrate: videoTrack.bitrate || 0,
+                        fps: videoTrack.nb_samples / (info.duration / info.timescale)
+                    } : null,
+                    audio: audioTrack ? {
+                        codec: audioTrack.codec,
+                        bitrate: audioTrack.bitrate || 0,
+                        channels: audioTrack.audio.channel_count,
+                        sampleRate: audioTrack.audio.sample_rate
+                    } : null
+                };
+                self.postMessage({ type: 'analysis_result', data: result });
+                resolve();
+            };
+
+            mp4boxfile.appendBuffer(arrayBuffer);
+            mp4boxfile.flush();
+        });
+    }
+
+    // コーデックの互換性チェック（パススルー判定用）
+    function isCodecCompatible(inputCodec, targetSetting) {
+        if (!inputCodec) return false;
+        const lowerInput = inputCodec.toLowerCase();
+        
+        // H.264
+        if (targetSetting === 'h264') {
+            return lowerInput.startsWith('avc1') || lowerInput.startsWith('h264');
+        }
+        // H.265 (HEVC)
+        if (targetSetting === 'h265') {
+            return lowerInput.startsWith('hvc1') || lowerInput.startsWith('hev1');
+        }
+        // AV1
+        if (targetSetting === 'av1') {
+            return lowerInput.startsWith('av01');
+        }
+        // AAC
+        if (targetSetting === 'aac') {
+            return lowerInput.startsWith('mp4a') || lowerInput === 'aac';
+        }
+        // Opus
+        if (targetSetting === 'opus') {
+            return lowerInput.startsWith('opus');
+        }
+        return false;
+    }
+
+    // トランスコード実行関数
+    async function startTranscode(params) {
+        const { file, settings } = params;
+        
+        const arrayBuffer = await file.arrayBuffer();
+        arrayBuffer.fileStart = 0;
+        const demuxerFile = MP4Box.createFile();
+        
+        // 処理用変数の初期化
+        let muxer = null;
+        
+        // ビデオ処理用
+        let videoEncoder = null;
+        let videoDecoder = null;
+        let videoPassthrough = false;
+        
+        // オーディオ処理用
+        let audioEncoder = null;
+        let audioDecoder = null;
+        let audioPassthrough = false;
+        
+        let processedVideoFrames = 0;
+        let totalVideoFrames = 0;
+
+        // 準備ができたら設定を行う
+        demuxerFile.onReady = (info) => {
+            const videoTrack = info.videoTracks[0];
+            const audioTrack = info.audioTracks[0];
+            
+            // パススルー判定
+            if (videoTrack) {
+                totalVideoFrames = videoTrack.nb_samples;
+                // ビットレートが維持(-1) かつ コーデックが互換性ありの場合、パススルー
+                if (settings.videoBitrate === -1 && isCodecCompatible(videoTrack.codec, settings.videoCodec)) {
+                    videoPassthrough = true;
+                    console.log("Video: Passthrough mode enabled");
+                }
+            }
+            
+            if (audioTrack) {
+                // ビットレートが維持(-1) かつ コーデックが互換性ありの場合、パススルー
+                if (settings.audioBitrate === -1 && isCodecCompatible(audioTrack.codec, settings.audioCodec)) {
+                    audioPassthrough = true;
+                    console.log("Audio: Passthrough mode enabled");
+                }
+            }
+
+            // --- Muxer Setup ---
+            // パススルーの場合は元のコーデック文字列を使用、そうでなければターゲット設定を使用
+            
+            // ビデオのMuxer設定
+            let muxerVideoConfig = undefined;
+            if (videoTrack) {
+                if (videoPassthrough) {
+                    muxerVideoConfig = {
+                        codec: videoTrack.codec,
+                        width: videoTrack.video.width,
+                        height: videoTrack.video.height
+                    };
+                } else {
+                    // 再エンコード時のターゲット設定
+                    let codecString = settings.videoCodec === 'av1' ? (settings.format === 'mp4' ? 'av01' : 'V_AV1') 
+                                    : (settings.format === 'mp4' ? 'avc' : 'V_MPEG4/ISO/AVC');
+                    // ※ 実際にはEncoderからの出力時に確定するが、初期化用ダミーとして
+                    muxerVideoConfig = {
+                        codec: codecString,
+                        width: videoTrack.video.width, 
+                        height: videoTrack.video.height
+                    };
+                }
+            }
+
+            // オーディオのMuxer設定
+            let muxerAudioConfig = undefined;
+            if (audioTrack && settings.audioCodec) { // オーディオ出力が有効な場合
+                if (audioPassthrough) {
+                    muxerAudioConfig = {
+                        codec: audioTrack.codec,
+                        sampleRate: audioTrack.audio.sample_rate,
+                        numberOfChannels: audioTrack.audio.channel_count
+                    };
+                } else {
+                    let codecString = settings.audioCodec === 'opus' ? (settings.format === 'mp4' ? 'opus' : 'A_OPUS') 
+                                    : (settings.format === 'mp4' ? 'mp4a' : 'A_AAC');
+                    muxerAudioConfig = {
+                        codec: codecString,
+                        sampleRate: 48000, // 再エンコード時のデフォルト
+                        numberOfChannels: 2
+                    };
+                }
+            }
+
+            const muxerOptions = {
+                target: settings.format === 'mp4' ? new Mp4Muxer.ArrayBufferTarget() : new WebMMuxer.ArrayBufferTarget(),
+                video: muxerVideoConfig,
+                audio: muxerAudioConfig,
+                fastStart: 'in-memory'
+            };
+
+            if (settings.format === 'mp4') {
+                muxer = new Mp4Muxer.Muxer(muxerOptions);
+            } else {
+                muxer = new WebMMuxer.Muxer(muxerOptions);
+            }
+
+            // --- Video Pipeline Setup ---
+            if (videoTrack) {
+                demuxerFile.setExtractionOptions(videoTrack.id);
+                
+                if (!videoPassthrough) {
+                    // トランスコードモード: Decoder -> Encoder のセットアップ
+                    const initVideoEncoder = (width, height) => {
+                        const targetBitrate = settings.videoBitrate === -1 ? (settings.originalVideoBitrate || 2000000) : settings.videoBitrate;
+                        let encoderCodec = settings.videoCodec === 'h265' ? 'hvc1.1.6.L93.B0' : 
+                                           (settings.videoCodec === 'av1' ? 'av01.0.04M.08' : 'avc1.42001f');
+                        
+                        const config = {
+                            codec: encoderCodec,
+                            width: width,
+                            height: height,
+                            bitrate: targetBitrate,
+                            framerate: 30
+                        };
+                        
+                        videoEncoder = new VideoEncoder({
+                            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                            error: (e) => console.error("Video Encode Error", e)
+                        });
+                        videoEncoder.configure(config);
+                    };
+
+                    videoDecoder = new VideoDecoder({
+                        output: (frame) => {
+                            if (!videoEncoder) {
+                                const w = frame.displayWidth % 2 === 0 ? frame.displayWidth : frame.displayWidth - 1;
+                                const h = frame.displayHeight % 2 === 0 ? frame.displayHeight : frame.displayHeight - 1;
+                                initVideoEncoder(w, h);
+                            }
+                            if (videoEncoder && videoEncoder.state === "configured") {
+                                videoEncoder.encode(frame);
+                                processedVideoFrames++;
+                                if (totalVideoFrames > 0) {
+                                     self.postMessage({ 
+                                        type: 'progress', 
+                                        value: Math.min(100, Math.round((processedVideoFrames / totalVideoFrames) * 100))
+                                    });
+                                }
+                                frame.close();
+                            } else {
+                                frame.close();
+                            }
+                        },
+                        error: (e) => self.postMessage({ type: 'error', error: "Video Decode Error: " + e.message })
+                    });
+
+                    const config = {
+                        codec: videoTrack.codec,
+                        codedWidth: videoTrack.video.width,
+                        codedHeight: videoTrack.video.height,
+                        description: _getDescription(demuxerFile.getTrackById(videoTrack.id))
+                    };
+                    videoDecoder.configure(config);
+                }
+            }
+
+            // --- Audio Pipeline Setup ---
+            if (audioTrack) {
+                demuxerFile.setExtractionOptions(audioTrack.id);
+
+                if (!audioPassthrough) {
+                    // トランスコードモード
+                    const initAudioEncoder = (sampleRate, numberOfChannels) => {
+                        const targetBitrate = settings.audioBitrate === -1 ? (settings.originalAudioBitrate || 128000) : settings.audioBitrate;
+                        let codec = 'mp4a.40.2'; 
+                        if (settings.audioCodec === 'opus') codec = 'opus';
+
+                        audioEncoder = new AudioEncoder({
+                            output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                            error: (e) => console.error("Audio Encode Error", e)
+                        });
+                        
+                        const config = {
+                            codec: codec,
+                            sampleRate: sampleRate,
+                            numberOfChannels: numberOfChannels,
+                            bitrate: targetBitrate
+                        };
+                        
+                        AudioEncoder.isConfigSupported(config).then((support) => {
+                            if(support.supported) audioEncoder.configure(config);
+                            else self.postMessage({ type: 'error', error: `音声エンコード設定がサポートされていません: ${codec}` });
+                        }).catch(e => console.error("Audio check failed", e));
+                    };
+
+                    audioDecoder = new AudioDecoder({
+                        output: (data) => {
+                            if (!audioEncoder) {
+                                initAudioEncoder(data.sampleRate, data.numberOfChannels);
+                            }
+                            if (audioEncoder && audioEncoder.state === "configured") {
+                                audioEncoder.encode(data);
+                                data.close();
+                            } else {
+                                data.close();
+                            }
+                        },
+                        error: (e) => console.error("Audio Decode Error", e)
+                    });
+
+                    // Audio Decoder Config
+                    const audioCodec = audioTrack.codec;
+                    let description = _getDescription(demuxerFile.getTrackById(audioTrack.id));
+                    if (!description && (audioCodec.startsWith('mp4a') || audioCodec === 'aac')) {
+                        description = generateAACDescription(audioTrack.audio.sample_rate, audioTrack.audio.channel_count);
+                    }
+                    let decoderCodec = audioCodec;
+                    if (audioCodec.startsWith('mp4a') && (audioCodec === 'mp4a' || audioCodec.split('.').length < 3)) {
+                        decoderCodec = 'mp4a.40.2';
+                    }
+
+                    const config = {
+                        codec: decoderCodec,
+                        sampleRate: audioTrack.audio.sample_rate,
+                        numberOfChannels: audioTrack.audio.channel_count,
+                        ...(description && { description: description })
+                    };
+                    try {
+                        audioDecoder.configure(config);
+                    } catch(e) {
+                        console.error("Audio Decoder Config Error", e);
+                    }
+                }
+            }
+            
+            demuxerFile.start();
+        };
+
+        demuxerFile.onSamples = (id, user, samples) => {
+            const videoTrackId = demuxerFile.videoTracks[0]?.id;
+            const audioTrackId = demuxerFile.audioTracks[0]?.id;
+
+            for (const sample of samples) {
+                // タイムスタンプ変換: MP4 timescale -> マイクロ秒 (1/1,000,000秒)
+                // WebCodecs EncodedChunk はマイクロ秒を要求する
+                const timestampUs = (sample.cts * 1000000) / sample.timescale;
+                const durationUs = (sample.duration * 1000000) / sample.timescale;
+                
+                // チャンク種別
+                const type = sample.is_sync ? "key" : "delta";
+
+                const chunkInit = {
+                    type: type,
+                    timestamp: timestampUs,
+                    duration: durationUs,
+                    data: sample.data
+                };
+
+                if (id === videoTrackId) {
+                    if (videoPassthrough) {
+                        // パススルー: 直接Muxerへ (EncodedVideoChunkとしてラップ)
+                        // EncodedVideoChunkコンストラクタに渡してMuxerへ
+                        const chunk = new EncodedVideoChunk(chunkInit);
+                        
+                        // 最初のチャンク、またはキーフレーム時にメタデータを渡す必要がある場合がある
+                        // mp4-muxer/webm-muxerは通常addVideoChunkの第2引数でmetaを受け取る
+                        // パススルーの場合、Demuxerから取得したdescriptionを渡す
+                        let meta = undefined;
+                        if (type === 'key') {
+                            meta = {
+                                decoderConfig: {
+                                    codec: demuxerFile.videoTracks[0].codec,
+                                    description: _getDescription(demuxerFile.getTrackById(videoTrackId))
+                                }
+                            };
+                        }
+                        muxer.addVideoChunk(chunk, meta);
+                        
+                        processedVideoFrames++;
+                        if (totalVideoFrames > 0) {
+                             self.postMessage({ 
+                                type: 'progress', 
+                                value: Math.min(100, Math.round((processedVideoFrames / totalVideoFrames) * 100))
+                            });
+                        }
+                    } else {
+                        // トランスコード
+                        if (videoDecoder && videoDecoder.state === 'configured') {
+                            try { videoDecoder.decode(new EncodedVideoChunk(chunkInit)); } catch(e) {}
+                        }
+                    }
+                } else if (id === audioTrackId) {
+                    if (audioPassthrough) {
+                        // パススルー: 直接Muxerへ
+                        const chunk = new EncodedAudioChunk(chunkInit);
+                        let meta = undefined;
+                        if (type === 'key' || processedVideoFrames === 0) { // 音声は最初のフレームなどでメタデータを
+                             meta = {
+                                decoderConfig: {
+                                    codec: demuxerFile.audioTracks[0].codec,
+                                    description: _getDescription(demuxerFile.getTrackById(audioTrackId))
+                                }
+                            };
+                        }
+                        muxer.addAudioChunk(chunk, meta);
+                    } else {
+                        // トランスコード
+                        if (audioDecoder && audioDecoder.state === 'configured') {
+                            try { audioDecoder.decode(new EncodedAudioChunk(chunkInit)); } catch(e) {}
+                        }
+                    }
+                }
+            }
+        };
+
+        // --- Flush & Finalize ---
+        // 注意: MP4Boxはブロック単位でappendBufferされるとonSamplesを呼ぶ。
+        // 完全に読み終わったタイミングでflush処理が必要。
+        // 今回の実装では一括でappendBufferしているため、ここに来る時点ですべてのサンプル処理が
+        // キューに入っている（同期的なループ内）。
+        // ただし、WebCodecsのdecode/encodeは非同期。
+        
+        // パススルーの場合は同期的に addChunk しているので待ち時間は不要だが、
+        // トランスコードの場合は flush() を待つ必要がある。
+
+        demuxerFile.appendBuffer(arrayBuffer);
+        demuxerFile.flush();
+
+        // トランスコード処理がある場合のみFlush待ち
+        if (!videoPassthrough && videoDecoder && videoDecoder.state === 'configured') await videoDecoder.flush();
+        if (!videoPassthrough && videoEncoder && videoEncoder.state === 'configured') await videoEncoder.flush();
+        
+        if (demuxerFile.audioTracks[0]) {
+             if (!audioPassthrough && audioDecoder && audioDecoder.state === 'configured') await audioDecoder.flush();
+             if (!audioPassthrough && audioEncoder && audioEncoder.state === 'configured') await audioEncoder.flush();
+        }
+
+        muxer.finalize();
+        
+        const { buffer } = muxer.target;
+        self.postMessage({ 
+            type: 'complete', 
+            blob: new Blob([buffer], { type: settings.format === 'mp4' ? 'video/mp4' : 'video/webm' }) 
+        });
+    }
+
+    function _getDescription(track) {
+        const box = track.mdia.minf.stbl.stsd.entries[0];
+        if (box.avcC) return box.avcC.toBuffer();
+        if (box.hvcC) return box.hvcC.toBuffer();
+        if (box.av1C) return box.av1C.toBuffer();
+        if (box.esds && box.esds.esd && box.esds.esd.decoderConfigDescriptor && box.esds.esd.decoderConfigDescriptor.decoderSpecificInfo) {
+             const data = box.esds.esd.decoderConfigDescriptor.decoderSpecificInfo.data;
+             if (data && data.length > 0) return data.slice(0).buffer; 
+        }
+        return null;
+    }
+
+    function generateAACDescription(sampleRate, channels) {
+        const sampleRates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+        let sfi = sampleRates.indexOf(sampleRate);
+        if (sfi === -1) sfi = 4; 
+        const aot = 2; 
+        const firstByte = (aot << 3) | (sfi >> 1);
+        const secondByte = ((sfi & 1) << 7) | (channels << 3);
+        return new Uint8Array([firstByte, secondByte]).buffer;
+    }
+</script>
+
+    <div class="relative flex min-h-screen w-full flex-col" id="app">
+        <!-- Header -->
+        <div
+            class="sticky top-0 z-10 flex items-center justify-between bg-background-light/80 p-4 pb-2 backdrop-blur-sm dark:bg-background-dark/80">
+            <div class="flex size-12 shrink-0 items-center text-slate-800 dark:text-white cursor-pointer"
+                onclick="window.location.reload()">
+                <span class="material-symbols-outlined text-2xl">arrow_back</span>
+            </div>
+            <h1
+                class="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                変換設定</h1>
+            <div class="size-12 shrink-0"></div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-grow px-4 pb-28">
+            <!-- Input File Area -->
+            <div id="drop-zone" class="rounded-xl bg-white p-4 dark:bg-slate-800/50 transition-colors duration-200">
+                <input type="file" id="file-input" class="hidden" accept="video/mp4,video/quicktime,video/webm">
+                <div class="flex items-center gap-4">
+                    <div
+                        class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
+                        <span class="material-symbols-outlined text-2xl">movie</span>
+                    </div>
+                    <div class="flex flex-col justify-center overflow-hidden">
+                        <p id="file-name"
+                            class="font-medium leading-normal text-slate-800 line-clamp-1 dark:text-white">ファイルを選択してください
+                        </p>
+                        <p id="file-status"
+                            class="text-sm font-normal leading-normal text-slate-500 line-clamp-2 dark:text-slate-400">
+                            MP4, MOV, WebM に対応</p>
+                    </div>
+                    <div class="ml-auto shrink-0">
+                        <button id="select-btn"
+                            class="flex h-8 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-200 px-4 text-sm font-medium leading-normal text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600">
+                            <span class="truncate">選択</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Link (Always visible, state controlled) -->
+                <div class="mt-4 border-t pt-4" id="info-link-container">
+                    <label id="info-link-label"
+                        class="flex cursor-pointer items-center justify-between border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600"
+                        for="video-info-modal">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-xl">info</span>
+                            <span class="text-sm font-medium">現在の動画情報</span>
+                        </div>
+                        <span class="material-symbols-outlined text-2xl">chevron_right</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Settings Area -->
+            <div class="mt-6 space-y-6 opacity-50 pointer-events-none" id="settings-area">
+
+                <!-- Output Format -->
+                <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        変換先フォーマット</h3>
+                    <div
+                        class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input class="invisible w-0" name="output_format" type="radio" value="webm" />
+                            <span class="truncate">WebM</span>
+                        </label>
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input checked="" class="invisible w-0" name="output_format" type="radio" value="mp4" />
+                            <span class="truncate">MP4</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Video Settings -->
+                <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        動画設定</h3>
+                    <p class="mb-1 text-sm text-slate-500 dark:text-slate-400">コーデック</p>
+                    <div
+                        class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input checked="" class="invisible w-0" name="video_codec" type="radio" value="h264" />
+                            <span class="truncate">H.264</span>
+                        </label>
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input class="invisible w-0" name="video_codec" type="radio" value="av1" />
+                            <span class="truncate">AV1</span>
+                        </label>
+                        <label id="h265-option"
+                            class="hidden flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input class="invisible w-0" name="video_codec" type="radio" value="h265" />
+                            <span class="truncate">H.265</span>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート</p>
+                        <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">現在のビットレートを維持</p>
+                    </div>
+                    <div class="relative mt-1">
+                        <input id="bitrate-input"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
+                            max="2000000" min="100000" step="100000" type="range" value="2000000" />
+                        <div class="mt-1 flex justify-between text-xs text-slate-400">
+                            <span>0.1M</span>
+                            <span id="video-bitrate-mid">中</span>
+                            <span>維持</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audio Settings -->
+                <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        音声設定</h3>
+                    <p class="mb-1 text-sm text-slate-500 dark:text-slate-400">コーデック</p>
+                    <div
+                        class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
+                            <input checked="" class="invisible w-0" name="audio_codec" type="radio" value="aac" />
+                            <span class="truncate">AAC</span>
+                        </label>
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
+                            <input class="invisible w-0" name="audio_codec" type="radio" value="opus" />
+                            <span class="truncate">Opus</span>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート</p>
+                        <p class="font-medium text-slate-800 dark:text-white" id="audio-bitrate-display">現在のビットレートを維持
+                        </p>
+                    </div>
+                    <div class="relative mt-1">
+                        <input id="audio-bitrate-input"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
+                            max="128000" min="32000" step="1000" type="range" value="128000" />
+                        <div class="mt-1 flex justify-between text-xs text-slate-400">
+                            <span>32k</span>
+                            <span id="audio-bitrate-mid">中</span>
+                            <span>維持</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estimated Size -->
+                <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        予想ファイルサイズ</h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-500 dark:text-slate-400">概算</span>
+                            <span class="font-medium text-slate-800 dark:text-white" id="est-size">-- MB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer Action -->
+        <div
+            class="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background-light to-transparent p-4 pt-6 dark:from-background-dark">
+            <button id="convert-btn" disabled
+                class="w-full rounded-xl bg-primary py-4 text-base font-bold text-white shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                変換開始
+            </button>
+            <!-- Progress Bar (Hidden initially) -->
+            <div id="progress-container" class="hidden w-full mt-2">
+                <div class="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700 mb-1">
+                    <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="text-center text-sm font-bold text-slate-800 dark:text-white">処理中: 0%</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <input class="peer hidden" id="video-info-modal" type="checkbox" />
+    <div class="modal-backdrop fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm">
+        <div
+            class="modal-content absolute bottom-0 left-0 right-0 w-full translate-y-full rounded-t-xl bg-background-light p-4 pt-2 opacity-0 transition-all duration-300 dark:bg-slate-800">
+            <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+            <h2
+                class="mb-4 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                現在の動画情報</h2>
+            <div class="space-y-3" id="modal-info-content">
+                <p class="text-center text-slate-500">ファイルが選択されていません。</p>
+            </div>
+            <label
+                class="mt-6 block w-full cursor-pointer rounded-xl bg-primary py-3 text-center text-base font-bold text-white"
+                for="video-info-modal">閉じる</label>
+        </div>
+        <label class="fixed inset-0 z-[-1] hidden h-full w-full cursor-pointer" for="video-info-modal"></label>
+    </div>
+
+    <script>
+        // --- Main Thread Logic ---
+
+        const workerScript = document.getElementById('worker-script').textContent;
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+
+        // UI References
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const selectBtn = document.getElementById('select-btn');
+        const fileNameDisplay = document.getElementById('file-name');
+        const fileStatusDisplay = document.getElementById('file-status');
+        const settingsArea = document.getElementById('settings-area');
+        const convertBtn = document.getElementById('convert-btn');
+
+        const bitrateInput = document.getElementById('bitrate-input');
+        const bitrateDisplay = document.getElementById('bitrate-display');
+        const videoBitrateMid = document.getElementById('video-bitrate-mid');
+
+        const audioBitrateInput = document.getElementById('audio-bitrate-input');
+        const audioBitrateDisplay = document.getElementById('audio-bitrate-display');
+        const audioBitrateMid = document.getElementById('audio-bitrate-mid');
+
+        const estSizeDisplay = document.getElementById('est-size');
+        const infoLinkContainer = document.getElementById('info-link-container');
+        const infoLinkLabel = document.getElementById('info-link-label');
+        const modalInfoContent = document.getElementById('modal-info-content');
+        const videoInfoModalCheckbox = document.getElementById('video-info-modal');
+        const h265Option = document.getElementById('h265-option');
+
+        // State
+        let selectedFile = null;
+        let fileInfo = null;
+
+        // --- UI Utility Functions ---
+
+        function showAlert(message) {
+            const alertModal = document.createElement('div');
+            alertModal.className = 'fixed inset-0 z-[99] flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300';
+            alertModal.innerHTML = `
+            <div class="bg-white dark:bg-slate-700 rounded-xl p-6 shadow-2xl max-w-sm mx-4 transform transition-transform duration-300 scale-100">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3">エラーが発生しました</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mb-4 whitespace-pre-wrap break-words">${message}</p>
+                <button id="close-alert-btn" class="w-full rounded-lg bg-primary py-2 text-base font-bold text-white hover:bg-primary/90">OK</button>
+            </div>
+        `;
+            document.body.appendChild(alertModal);
+
+            document.getElementById('close-alert-btn').addEventListener('click', () => {
+                alertModal.classList.add('opacity-0');
+                setTimeout(() => alertModal.remove(), 300);
+            });
+        }
+
+        function updateInfoLinkState(isEnabled) {
+            if (isEnabled) {
+                infoLinkLabel.classList.remove('opacity-50', 'pointer-events-none');
+                infoLinkLabel.classList.add('cursor-pointer', 'border-slate-200', 'dark:border-slate-700', 'text-slate-700', 'dark:text-white');
+                infoLinkLabel.classList.remove('text-slate-400', 'dark:text-slate-600');
+                videoInfoModalCheckbox.disabled = false;
+            } else {
+                infoLinkLabel.classList.add('opacity-50', 'pointer-events-none');
+                infoLinkLabel.classList.remove('cursor-pointer', 'border-slate-200', 'dark:border-slate-700', 'text-slate-700', 'dark:text-white');
+                infoLinkLabel.classList.add('text-slate-400', 'dark:text-slate-600');
+                videoInfoModalCheckbox.checked = false;
+                videoInfoModalCheckbox.disabled = true;
+            }
+            infoLinkContainer.classList.toggle('border-slate-200', isEnabled);
+            infoLinkContainer.classList.toggle('dark:border-slate-700', isEnabled);
+        }
+
+        updateInfoLinkState(false);
+
+        async function checkH265Support() {
+            const config = {
+                codec: "hvc1.1.6.L93.B0",
+                width: 1920,
+                height: 1080,
+                bitrate: 2000000,
+                framerate: 30
+            };
+            try {
+                const support = await VideoEncoder.isConfigSupported(config);
+                if (support.supported) {
+                    h265Option.classList.remove('hidden');
+                    h265Option.classList.add('flex');
+                }
+            } catch (e) {
+                console.log("H.265 not supported");
+            }
+        }
+        checkH265Support();
+
+        // 2. Event Listeners
+        selectBtn.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-active');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-active');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        infoLinkLabel.addEventListener('click', (e) => {
+            if (!selectedFile) {
+                e.preventDefault();
+                modalInfoContent.innerHTML = `<p class="text-center text-slate-500">ファイルが選択されていません。</p>`;
+            }
+        });
+
+        document.querySelectorAll('input[name="output_format"], input[name="video_codec"], input[name="audio_codec"]').forEach(input => {
+            input.addEventListener('change', updateEstimate);
+        });
+
+        bitrateInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            const max = parseInt(e.target.max);
+
+            if (val >= max) {
+                bitrateDisplay.textContent = "現在のビットレートを維持";
+            } else {
+                bitrateDisplay.textContent = (val / 1000000).toFixed(1) + " Mbps";
+            }
+            updateEstimate();
+        });
+
+        audioBitrateInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            const max = parseInt(e.target.max);
+
+            if (val >= max) {
+                audioBitrateDisplay.textContent = "現在のビットレートを維持";
+            } else {
+                audioBitrateDisplay.textContent = Math.round(val / 1000) + " kbps";
+            }
+            updateEstimate();
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+            selectedFile = file;
+
+            fileNameDisplay.textContent = file.name;
+            fileStatusDisplay.textContent = "解析中...";
+
+            settingsArea.classList.add('opacity-50', 'pointer-events-none');
+            convertBtn.disabled = true;
+
+            updateInfoLinkState(true);
+
+            worker.postMessage({ type: 'inspect', data: { file: file } });
+        }
+
+        function updateFileInfo(info) {
+            fileInfo = info;
+            fileStatusDisplay.textContent = `${info.container} | ${(info.fileSize / 1024 / 1024).toFixed(1)} MB`;
+            settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+            convertBtn.disabled = false;
+
+            const originalVideoBitrate = info.video && info.video.bitrate > 0 ? info.video.bitrate : 2000000;
+            const SAFE_MAX_VIDEO = 10000000;
+            const maxVideoBitrate = Math.min(Math.max(originalVideoBitrate, 1000000), SAFE_MAX_VIDEO);
+
+            bitrateInput.max = maxVideoBitrate;
+            bitrateInput.value = maxVideoBitrate;
+            bitrateInput.step = Math.max(100000, Math.floor(maxVideoBitrate / 10));
+            bitrateDisplay.textContent = "現在のビットレートを維持";
+            videoBitrateMid.textContent = (maxVideoBitrate / 2 / 1000000).toFixed(1) + "M";
+
+            const originalAudioBitrate = info.audio && info.audio.bitrate > 0 ? info.audio.bitrate : 128000;
+            const SAFE_MAX_AUDIO = 320000;
+            const maxAudioBitrate = Math.min(Math.max(originalAudioBitrate, 32000), SAFE_MAX_AUDIO);
+
+            audioBitrateInput.max = maxAudioBitrate;
+            audioBitrateInput.value = maxAudioBitrate;
+            audioBitrateInput.step = Math.max(1000, Math.floor(maxAudioBitrate / 10));
+            audioBitrateDisplay.textContent = "現在のビットレートを維持";
+            audioBitrateMid.textContent = Math.round(maxAudioBitrate / 2 / 1000) + "k";
+
+            modalInfoContent.innerHTML = `
+            <div class="space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">コンテナ</span><span class="font-medium text-slate-800 dark:text-white">${info.container}</span></div>
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">ファイルサイズ</span><span class="font-medium text-slate-800 dark:text-white">${(info.fileSize / 1024 / 1024).toFixed(2)} MB</span></div>
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">再生時間</span><span class="font-medium text-slate-800 dark:text-white">${info.duration.toFixed(2)} 秒</span></div>
+                
+                <p class="text-xs font-bold text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-700">映像ストリーム</p>
+                ${info.video ? `
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">コーデック</span><span class="font-medium text-slate-800 dark:text-white">${info.video.codec}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">解像度</span><span class="font-medium text-slate-800 dark:text-white">${info.video.width}x${info.video.height}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">ビットレート</span><span class="font-medium text-slate-800 dark:text-white">${Math.round(info.video.bitrate / 1000)} kbps</span></div>
+                ` : '<p class="text-sm text-slate-500 dark:text-slate-400">映像ストリームなし</p>'}
+
+                <p class="text-xs font-bold text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-700">音声ストリーム</p>
+                ${info.audio ? `
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">コーデック</span><span class="font-medium text-slate-800 dark:text-white">${info.audio.codec}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">チャンネル数</span><span class="font-medium text-slate-800 dark:text-white">${info.audio.channels} ch</span></div>
+                    <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">ビットレート</span><span class="font-medium text-slate-800 dark:text-white">${Math.round(info.audio.bitrate / 1000)} kbps</span></div>
+                ` : '<p class="text-sm text-slate-500 dark:text-slate-400">音声ストリームなし</p>'}
+            </div>
+        `;
+            updateEstimate();
+        }
+
+        function updateEstimate() {
+            if (!fileInfo) return;
+
+            let targetVideoBitrate = 0;
+            if (fileInfo.video) {
+                targetVideoBitrate = parseInt(bitrateInput.value);
+                if (targetVideoBitrate >= parseInt(bitrateInput.max)) {
+                    targetVideoBitrate = fileInfo.video.bitrate;
+                }
+            }
+
+            let targetAudioBitrate = 0;
+            if (fileInfo.audio) {
+                targetAudioBitrate = parseInt(audioBitrateInput.value);
+                if (targetAudioBitrate >= parseInt(audioBitrateInput.max)) {
+                    targetAudioBitrate = fileInfo.audio.bitrate;
+                }
+            }
+
+            if (targetVideoBitrate === 0 && targetAudioBitrate === 0) {
+                estSizeDisplay.textContent = `-- MB`;
+                return;
+            }
+
+            const duration = fileInfo.duration;
+            const totalBits = (targetVideoBitrate + targetAudioBitrate) * duration;
+            const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
+
+            estSizeDisplay.textContent = `~ ${estimatedSizeMB.toFixed(1)} MB`;
+        }
+
+        convertBtn.addEventListener('click', () => {
+            if (!selectedFile) return;
+
+            convertBtn.classList.add('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            settingsArea.classList.add('opacity-50', 'pointer-events-none');
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-text').textContent = "処理中: 0%";
+
+            const vBitrate = parseInt(bitrateInput.value) >= parseInt(bitrateInput.max) ? -1 : parseInt(bitrateInput.value);
+            const aBitrate = parseInt(audioBitrateInput.value) >= parseInt(audioBitrateInput.max) ? -1 : parseInt(audioBitrateInput.value);
+
+            const settings = {
+                format: document.querySelector('input[name="output_format"]:checked').value,
+                videoCodec: document.querySelector('input[name="video_codec"]:checked').value,
+                audioCodec: document.querySelector('input[name="audio_codec"]:checked').value,
+                videoBitrate: vBitrate,
+                audioBitrate: aBitrate,
+                originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
+                originalAudioBitrate: fileInfo.audio && fileInfo.audio.bitrate > 0 ? fileInfo.audio.bitrate : 128000
+            };
+
+            worker.postMessage({ type: 'start', data: { file: selectedFile, settings } });
+        });
+
+        worker.onmessage = (e) => {
+            const { type, value, blob, error, data } = e.data;
+
+            if (type === 'analysis_result') {
+                updateFileInfo(data);
+            } else if (type === 'progress') {
+                document.getElementById('progress-bar').style.width = `${value}%`;
+                document.getElementById('progress-text').textContent = `処理中: ${value}%`;
+            } else if (type === 'complete') {
+                document.getElementById('progress-text').textContent = "完了!";
+                downloadFile(blob);
+                setTimeout(() => {
+                    convertBtn.classList.remove('hidden');
+                    document.getElementById('progress-container').classList.add('hidden');
+                    settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+                    convertBtn.textContent = "別のファイルを変換";
+                }, 1000);
+            } else if (type === 'error') {
+                showAlert(error);
+                console.error(error);
+                convertBtn.classList.remove('hidden');
+                document.getElementById('progress-container').classList.add('hidden');
+                settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        };
+
+        function downloadFile(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const ext = document.querySelector('input[name="output_format"]:checked').value;
+            const baseName = selectedFile.name.split('.').slice(0, -1).join('_') || 'input';
+            a.download = `${baseName}_transcoded.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>
