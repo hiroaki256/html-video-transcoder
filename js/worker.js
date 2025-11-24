@@ -1,6 +1,7 @@
 function workerBody() {
     let MediaBunny = null;
     let libraryLoadPromise = null;
+    let currentConversion = null; // 現在実行中のConversionインスタンス
 
     async function loadLibrary() {
         if (MediaBunny) return;
@@ -37,6 +38,8 @@ function workerBody() {
                 await inspectFile(data.file);
             } else if (type === 'start') {
                 await startTranscode(data);
+            } else if (type === 'cancel') {
+                await cancelTranscode();
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -164,7 +167,7 @@ function workerBody() {
             const videoTrack = tracks.find(t => t.type === 'video');
             const audioTrack = tracks.find(t => t.type === 'audio');
 
-            // 出力オプションの設定
+            // 出力オプションの設定 (format と target のみ)
             let outputFormat;
             if (settings.format === 'mp4') {
                 outputFormat = new MediaBunny.Mp4OutputFormat();
@@ -174,100 +177,112 @@ function workerBody() {
                 outputFormat = new MediaBunny.Mp4OutputFormat();
             }
 
-            const outputOptions = {
+            const target = new MediaBunny.BufferTarget();
+            const output = new MediaBunny.Output({
                 format: outputFormat,
-                tracks: []
+                target: target
+            });
+
+            // 変換オプションを準備 (Conversion.init に渡す)
+            const conversionOptions = {
+                input: input,
+                output: output
             };
 
             // --- Video Configuration ---
-            // MediaBunnyはcodec/bitrateを指定しない場合、自動的にストリームをコピー（パススルー）します
-            let videoPassthrough = false;
+            // MediaBunnyはvideoオプションを指定しない場合、自動的にストリームをコピー（パススルー）します
             if (videoTrack) {
                 if (settings.videoBitrate === -1 && isCodecCompatible(videoTrack.codec, settings.videoCodec)) {
-                    // パススルーモード: codec/bitrateを指定しない
-                    videoPassthrough = true;
+                    // パススルーモード: videoオプションを指定しない
                     console.log("[Worker] Video: Passthrough mode enabled (stream copy)");
-                    // MediaBunnyは何も指定しないとデフォルトでパススルーするため、
-                    // video optionsを追加しないか、または空のオブジェクトを追加
+                    // conversionOptions.video を設定しない = パススルー
                 } else {
                     // トランスコードモード
                     const targetBitrate = settings.videoBitrate === -1 ? (settings.originalVideoBitrate || 2000000) : settings.videoBitrate;
-                    let encoderCodec = settings.videoCodec === 'h265' ? 'hvc1.1.6.L93.B0' :
-                        (settings.videoCodec === 'av1' ? 'av01.0.04M.08' : 'avc1.42E01E');
+                    // MediaBunnyは短いコーデック名を要求: 'avc', 'hevc', 'av1', 'vp9', 'vp8'
+                    let encoderCodec = settings.videoCodec === 'h265' ? 'hevc' :
+                        (settings.videoCodec === 'av1' ? 'av1' : 'avc');
 
                     console.log("[Worker] Video: Transcoding mode enabled", { codec: encoderCodec, bitrate: targetBitrate });
-                    outputOptions.tracks.push({
-                        kind: 'video',
+                    conversionOptions.video = {
                         codec: encoderCodec,
-                        width: videoTrack.width,
-                        height: videoTrack.height,
-                        bitrate: targetBitrate,
-                        frameRate: 30,
-                        sourceTrackId: videoTrack.id
-                    });
+                        bitrate: targetBitrate
+                        // width/heightを指定しないとMediaBunnyが自動的に元の解像度を使用
+                    };
                 }
             }
 
             // --- Audio Configuration ---
-            // MediaBunnyはcodec/bitrateを指定しない場合、自動的にストリームをコピー（パススルー）します
-            let audioPassthrough = false;
+            // MediaBunnyはaudioオプションを指定しない場合、自動的にストリームをコピー（パススルー）します
             if (audioTrack && settings.audioCodec) {
                 if (settings.audioBitrate === -1 && isCodecCompatible(audioTrack.codec, settings.audioCodec)) {
-                    // パススルーモード: codec/bitrateを指定しない
-                    audioPassthrough = true;
+                    // パススルーモード: audioオプションを指定しない
                     console.log("[Worker] Audio: Passthrough mode enabled (stream copy)");
-                    // MediaBunnyは何も指定しないとデフォルトでパススルーするため、
-                    // audio optionsを追加しない
+                    // conversionOptions.audio を設定しない = パススルー
                 } else {
                     // トランスコードモード
                     const targetBitrate = settings.audioBitrate === -1 ? (settings.originalAudioBitrate || 128000) : settings.audioBitrate;
                     let codec = settings.audioCodec === 'opus' ? 'opus' : 'mp4a.40.2';
 
                     console.log("[Worker] Audio: Transcoding mode enabled", { codec: codec, bitrate: targetBitrate });
-                    outputOptions.tracks.push({
-                        kind: 'audio',
+                    conversionOptions.audio = {
                         codec: codec,
                         sampleRate: 48000,
                         numberOfChannels: 2,
-                        bitrate: targetBitrate,
-                        sourceTrackId: audioTrack.id
-                    });
+                        bitrate: targetBitrate
+                    };
                 }
             }
 
-            // MediaBunny Converter (or Output) の使用
-            const target = new MediaBunny.BufferTarget();
-            const outputOptionsWithTarget = {
-                ...outputOptions,
-                target: target
-            };
+            // 変換実行
+            console.log("[Worker] startTranscode: Initializing Conversion with options:", conversionOptions);
+            currentConversion = await MediaBunny.Conversion.init(conversionOptions);
 
-            console.log("[Worker] startTranscode: Creating MediaBunny.Output with options:", outputOptionsWithTarget);
-            const output = new MediaBunny.Output(outputOptionsWithTarget);
-
-            // 進捗コールバック
-            output.onProgress = (progress) => {
+            // 進捗コールバック (Conversion に設定)
+            currentConversion.onProgress = (progress) => {
+                console.log("[Worker] Progress:", Math.round(progress * 100) + "%");
                 self.postMessage({ type: 'progress', value: Math.round(progress * 100) });
             };
 
-            // 変換実行
-            console.log("[Worker] startTranscode: Initializing Conversion");
-            const conversion = await MediaBunny.Conversion.init({ input: input, output: output });
-
             console.log("[Worker] startTranscode: Starting execution");
-            await conversion.execute();
+            await currentConversion.execute();
             console.log("[Worker] startTranscode: Execution complete");
 
             // BufferTargetからBlobを作成
+            console.log("[Worker] startTranscode: Creating blob from buffer, size:", target.buffer.byteLength);
             const blob = new Blob([target.buffer], { type: settings.format === 'mp4' ? 'video/mp4' : 'video/webm' });
+            console.log("[Worker] startTranscode: Blob created, size:", blob.size);
+
+            console.log("[Worker] startTranscode: Posting completion message to main thread");
             self.postMessage({
                 type: 'complete',
                 blob: blob
             });
+            console.log("[Worker] startTranscode: Completion message posted");
+            currentConversion = null; // クリーンアップ
 
         } catch (e) {
+            currentConversion = null; // エラー時もクリーンアップ
             console.error("Transcode Error:", e);
             self.postMessage({ type: 'error', error: "Transcode Error: " + e.message });
+        }
+    }
+
+    // トランスコードをキャンセルする関数
+    async function cancelTranscode() {
+        try {
+            if (currentConversion) {
+                console.log("[Worker] Cancelling conversion...");
+                await currentConversion.cancel();
+                console.log("[Worker] Conversion cancelled successfully");
+                currentConversion = null;
+                self.postMessage({ type: 'cancelled' });
+            } else {
+                console.warn("[Worker] No active conversion to cancel");
+            }
+        } catch (e) {
+            console.error("[Worker] Cancel error:", e);
+            self.postMessage({ type: 'error', error: "Cancel Error: " + e.message });
         }
     }
 }

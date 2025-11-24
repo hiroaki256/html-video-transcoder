@@ -12,6 +12,7 @@ const fileNameDisplay = document.getElementById('file-name');
 const fileStatusDisplay = document.getElementById('file-status');
 const settingsArea = document.getElementById('settings-area');
 const convertBtn = document.getElementById('convert-btn');
+const cancelBtn = document.getElementById('cancel-btn');
 
 const bitrateInput = document.getElementById('bitrate-input');
 const bitrateDisplay = document.getElementById('bitrate-display');
@@ -278,6 +279,7 @@ convertBtn.addEventListener('click', () => {
     if (!selectedFile) return;
 
     convertBtn.classList.add('hidden');
+    cancelBtn.classList.remove('hidden'); // キャンセルボタンを表示
     document.getElementById('progress-container').classList.remove('hidden');
     settingsArea.classList.add('opacity-50', 'pointer-events-none');
     document.getElementById('progress-bar').style.width = '0%';
@@ -299,6 +301,12 @@ convertBtn.addEventListener('click', () => {
     worker.postMessage({ type: 'start', data: { file: selectedFile, settings } });
 });
 
+// キャンセルボタンのイベント
+cancelBtn.addEventListener('click', () => {
+    console.log("Cancel button clicked");
+    worker.postMessage({ type: 'cancel' });
+});
+
 worker.onmessage = (e) => {
     const { type, value, blob, error, data } = e.data;
 
@@ -312,14 +320,23 @@ worker.onmessage = (e) => {
         downloadFile(blob);
         setTimeout(() => {
             convertBtn.classList.remove('hidden');
+            cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
             document.getElementById('progress-container').classList.add('hidden');
             settingsArea.classList.remove('opacity-50', 'pointer-events-none');
             convertBtn.textContent = "別のファイルを変換";
         }, 1000);
+    } else if (type === 'cancelled') {
+        console.log("Transcoding cancelled by user");
+        convertBtn.classList.remove('hidden');
+        cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
+        document.getElementById('progress-container').classList.add('hidden');
+        settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+        showAlert("変換がキャンセルされました");
     } else if (type === 'error') {
         showAlert(error);
         console.error(error);
         convertBtn.classList.remove('hidden');
+        cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
         document.getElementById('progress-container').classList.add('hidden');
         settingsArea.classList.remove('opacity-50', 'pointer-events-none');
     }
