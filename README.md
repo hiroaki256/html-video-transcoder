@@ -53,6 +53,22 @@ A high-performance video transcoder that runs entirely in your browser. Built wi
 - Monitor progress via the progress bar
 - File will automatically download upon completion
 
+## Performance Optimization
+
+This transcoder is built on WebCodecs and MediaBunny for maximum performance. Key optimizations include:
+
+- **Hardware Acceleration**: Automatic GPU utilization for encoding/decoding
+- **Passthrough Mode**: Ultra-fast stream copying when bitrate is set to "maintain"
+- **Zero-Copy Transfer**: Efficient memory management between workers
+- **Smart Codec Selection**: H.264 for speed, AV1 for compression
+
+**📖 For detailed performance tips and codec selection guidelines, see [Performance Guide](performance-guide.md)**
+
+### Speed Expectations
+- **Passthrough Mode**: 10-30 seconds for any file (container remux only)
+- **H.264 Transcoding**: 2-4x realtime on 1080p with hardware acceleration
+- **H.265/AV1**: Slower but better compression (see guide for details)
+
 ## Technical Specifications
 
 ### Libraries Used

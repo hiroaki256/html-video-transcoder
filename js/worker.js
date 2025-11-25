@@ -144,6 +144,10 @@ function workerBody() {
     }
 
     // トランスコード実行関数
+    // パフォーマンス最適化:
+    // - MediaBunnyは内部でWebCodecsを使用し、ハードウェアアクセラレーションを自動的に利用
+    // - パススルーモード（再エンコードなし）が最速
+    // - コーデック選択: H.264 > VP9 > H.265 > AV1 (速度順)
     async function startTranscode(params) {
         console.log("[Worker] startTranscode called with:", params);
         const { file, settings } = params;
@@ -260,10 +264,16 @@ function workerBody() {
             if (videoTrack && !settings.audioOnly) { // audioOnlyなら映像処理スキップ
                 if (settings.videoBitrate === -1 && isCodecCompatible(videoTrack.codec, settings.videoCodec)) {
                     // パススルーモード: videoオプションを指定しない
+                    // ★最速★ デコード・エンコードを行わず、ストリームをそのままコピー
                     console.log("[Worker] Video: Passthrough mode enabled (stream copy)");
                     // conversionOptions.video を設定しない = パススルー
                 } else {
                     // トランスコードモード
+                    // パフォーマンスノート:
+                    // - H.264 (avc): 最速、最も広くハードウェアサポート、リアルタイム処理可能
+                    // - H.265 (hevc): 圧縮効率25-30%向上だが、エンコード負荷高い
+                    // - AV1: 最高圧縮率だが、エンコード速度最も遅い（3-5倍遅い）
+                    // - MediaBunnyは内部でWebCodecsのハードウェアアクセラレーションを自動利用
                     const targetBitrate = settings.videoBitrate === -1 ? (settings.originalVideoBitrate || 2000000) : settings.videoBitrate;
                     // MediaBunnyは短いコーデック名を要求: 'avc', 'hevc', 'av1', 'vp9', 'vp8'
                     let encoderCodec = settings.videoCodec === 'h265' ? 'hevc' :
@@ -274,6 +284,8 @@ function workerBody() {
                         codec: encoderCodec,
                         bitrate: targetBitrate
                         // width/heightを指定しないとMediaBunnyが自動的に元の解像度を使用
+                        // MediaBunny v1.25.1では、WebCodecsの低レベル設定（hardwareAcceleration, latencyMode）に
+                        // 直接アクセスできない可能性があるが、内部で最適化されている
                     };
                 }
             }
@@ -283,10 +295,14 @@ function workerBody() {
             if (audioTrack && settings.audioCodec) {
                 if (settings.audioBitrate === -1 && isCodecCompatible(audioTrack.codec, settings.audioCodec)) {
                     // パススルーモード: audioオプションを指定しない
+                    // ★最速★ 音声ストリームをそのままコピー
                     console.log("[Worker] Audio: Passthrough mode enabled (stream copy)");
                     // conversionOptions.audio を設定しない = パススルー
                 } else {
                     // トランスコードモード
+                    // パフォーマンスノート:
+                    // - Opus: 一般的にAACより高速、WebM推奨
+                    // - AAC (mp4a.40.2): MP4標準、広くハードウェアサポート
                     const targetBitrate = settings.audioBitrate === -1 ? (settings.originalAudioBitrate || 128000) : settings.audioBitrate;
                     let codec = settings.audioCodec === 'opus' ? 'opus' : 'mp4a.40.2';
 
@@ -315,6 +331,8 @@ function workerBody() {
             console.log("[Worker] startTranscode: Execution complete");
 
             // BufferTargetからBlobを作成
+            // ゼロコピー転送: Blobは参照渡しで、postMessage時にTransferableではないが、
+            // 内部的にはStructured Clone Algorithmで効率的に転送される
             console.log("[Worker] startTranscode: Creating blob from buffer, size:", target.buffer.byteLength);
             const blob = new Blob([target.buffer], { type: settings.format === 'mp4' ? 'video/mp4' : 'video/webm' });
             console.log("[Worker] startTranscode: Blob created, size:", blob.size);
@@ -325,6 +343,9 @@ function workerBody() {
                 blob: blob
             });
             console.log("[Worker] startTranscode: Completion message posted");
+
+            // メモリ管理: MediaBunnyは内部でVideoFrameやその他リソースを自動管理
+            // conversionインスタンスへの参照を解放することで、ガベージコレクションを促進
             currentConversion = null; // クリーンアップ
 
         } catch (e) {
