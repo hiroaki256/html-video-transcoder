@@ -59,7 +59,8 @@
         <!-- Main Content -->
         <main class="flex-grow px-4 pb-28">
             <!-- Input File Area -->
-            <div id="drop-zone" class="rounded-xl bg-white p-4 dark:bg-slate-800/50 transition-colors duration-200">
+            <div id="drop-zone"
+                class="group relative rounded-xl bg-white p-6 dark:bg-slate-800/50 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 border-2 border-transparent border-dashed">
                 <input type="file" id="file-input" class="hidden" accept="video/mp4,video/quicktime,video/webm">
                 <div class="flex items-center gap-4">
                     <div
@@ -76,7 +77,7 @@
                     </div>
                     <div class="ml-auto shrink-0">
                         <button id="select-btn"
-                            class="flex h-8 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-200 px-4 text-sm font-medium leading-normal text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600">
+                            class="flex h-10 min-w-[100px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-100 px-6 text-sm font-bold leading-normal text-slate-700 dark:bg-slate-700 dark:text-white hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-300 shadow-sm hover:shadow-md">
                             <span class="truncate">選択</span>
                         </button>
                     </div>
@@ -122,7 +123,8 @@
                 <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         動画設定</h3>
-                    <p class="mb-1 text-sm text-slate-500 dark:text-slate-400">コーデック</p>
+                    <p class="mb-1 text-xs text-slate-400 dark:text-slate-500" id="original-video-codec">元のコーデック: 未選択
+                    </p>
                     <div
                         class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
                         <label
@@ -143,7 +145,7 @@
                     </div>
 
                     <div class="flex items-center justify-between">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(Mbps)</p>
                         <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">現在のビットレートを維持</p>
                     </div>
                     <div class="relative mt-1">
@@ -153,7 +155,7 @@
                         <div class="mt-1 flex justify-between text-xs text-slate-400">
                             <span>0.1M</span>
                             <span id="video-bitrate-mid">中</span>
-                            <span>維持</span>
+                            <span id="video-bitrate-max">維持</span>
                         </div>
                     </div>
                 </div>
@@ -162,7 +164,8 @@
                 <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         音声設定</h3>
-                    <p class="mb-1 text-sm text-slate-500 dark:text-slate-400">コーデック</p>
+                    <p class="mb-1 text-xs text-slate-400 dark:text-slate-500" id="original-audio-codec">元のコーデック: 未選択
+                    </p>
                     <div
                         class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
                         <label
@@ -178,18 +181,18 @@
                     </div>
 
                     <div class="flex items-center justify-between">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(kbps)</p>
                         <p class="font-medium text-slate-800 dark:text-white" id="audio-bitrate-display">現在のビットレートを維持
                         </p>
                     </div>
                     <div class="relative mt-1">
                         <input id="audio-bitrate-input"
                             class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
-                            max="128000" min="32000" step="1000" type="range" value="128000" />
+                            max="128000" min="32000" step="8000" type="range" value="128000" />
                         <div class="mt-1 flex justify-between text-xs text-slate-400">
                             <span>32k</span>
                             <span id="audio-bitrate-mid">中</span>
-                            <span>維持</span>
+                            <span id="audio-bitrate-max">維持</span>
                         </div>
                     </div>
                 </div>
@@ -211,22 +214,22 @@
         <!-- Footer Action -->
         <div
             class="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background-light to-transparent p-4 pt-6 dark:from-background-dark">
-            <div class="flex gap-2">
-                <button id="convert-btn" disabled
-                    class="flex-1 rounded-xl bg-primary py-4 text-base font-bold text-white shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                    変換開始
-                </button>
-                <button id="cancel-btn"
-                    class="hidden rounded-xl bg-red-500 px-6 py-4 text-base font-bold text-white shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all">
-                    中断
-                </button>
-            </div>
+            <button id="convert-btn" disabled
+                class="w-full rounded-xl bg-primary py-4 text-lg font-bold text-white shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300">
+                変換開始
+            </button>
+            <!-- Cancel button (shown during conversion) -->
+            <button id="cancel-btn"
+                class="hidden w-full rounded-xl bg-red-500 py-4 text-base font-bold text-white shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all mt-2">
+                中断
+            </button>
             <!-- Progress Bar (Hidden initially) -->
             <div id="progress-container" class="hidden w-full mt-2">
                 <div class="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700 mb-1">
                     <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
                 <p id="progress-text" class="text-center text-sm font-bold text-slate-800 dark:text-white">処理中: 0%</p>
+                <p id="elapsed-time" class="text-center text-xs text-slate-600 dark:text-slate-400 mt-1"></p>
             </div>
         </div>
     </div>

@@ -28,10 +28,17 @@ const infoLinkLabel = document.getElementById('info-link-label');
 const modalInfoContent = document.getElementById('modal-info-content');
 const videoInfoModalCheckbox = document.getElementById('video-info-modal');
 const h265Option = document.getElementById('h265-option');
+const originalVideoCodec = document.getElementById('original-video-codec');
+const originalAudioCodec = document.getElementById('original-audio-codec');
+const videoBitrateMax = document.getElementById('video-bitrate-max');
+const audioBitrateMax = document.getElementById('audio-bitrate-max');
+const elapsedTimeDisplay = document.getElementById('elapsed-time');
 
 // State
 let selectedFile = null;
 let fileInfo = null;
+let conversionStartTime = null;
+let elapsedTimer = null;
 
 // --- UI Utility Functions ---
 
@@ -160,6 +167,20 @@ function handleFile(file) {
     worker.postMessage({ type: 'inspect', data: { file: file } });
 }
 
+// Helper function to get user-friendly codec name
+function getCodecDisplayName(codec) {
+    if (!codec) return '不明';
+    const c = codec.toLowerCase();
+    if (c.startsWith('avc') || c.startsWith('h264')) return 'H.264';
+    if (c.startsWith('hvc') || c.startsWith('hev')) return 'H.265';
+    if (c.startsWith('av01')) return 'AV1';
+    if (c.startsWith('mp4a') || c === 'aac') return 'AAC';
+    if (c.startsWith('opus')) return 'Opus';
+    if (c.startsWith('vp8')) return 'VP8';
+    if (c.startsWith('vp9')) return 'VP9';
+    return codec;
+}
+
 function updateFileInfo(info) {
     fileInfo = info;
     fileStatusDisplay.textContent = `${info.container} | ${(info.fileSize / 1024 / 1024).toFixed(1)} MB`;
@@ -178,6 +199,7 @@ function updateFileInfo(info) {
     bitrateInput.value = maxVideoBitrate;
     bitrateDisplay.textContent = "現在のビットレートを維持";
     videoBitrateMid.textContent = (maxVideoBitrate / 2 / 1000000).toFixed(1) + "M";
+    videoBitrateMax.textContent = (maxVideoBitrate / 1000000).toFixed(1) + "M";
 
     const originalAudioBitrate = info.audio && info.audio.bitrate > 0 ? info.audio.bitrate : 128000;
     const SAFE_MAX_AUDIO = 320000;
@@ -191,7 +213,19 @@ function updateFileInfo(info) {
     audioBitrateInput.value = maxAudioBitrate;
     audioBitrateDisplay.textContent = "現在のビットレートを維持";
     audioBitrateMid.textContent = Math.round(maxAudioBitrate / 2 / 1000) + "k";
+    audioBitrateMax.textContent = Math.round(maxAudioBitrate / 1000) + "k";
 
+    // Display original codecs
+    if (info.video && info.video.codec) {
+        originalVideoCodec.textContent = `元のコーデック: ${getCodecDisplayName(info.video.codec)}`;
+    } else {
+        originalVideoCodec.textContent = '元のコーデック: 映像なし';
+    }
+    if (info.audio && info.audio.codec) {
+        originalAudioCodec.textContent = `元のコーデック: ${getCodecDisplayName(info.audio.codec)}`;
+    } else {
+        originalAudioCodec.textContent = '元のコーデック: 音声なし';
+    }
     // コーデックの自動選択（パススルー推奨）
     if (info.video && info.video.codec) {
         const c = info.video.codec.toLowerCase();
@@ -275,6 +309,23 @@ function updateEstimate() {
     estSizeDisplay.textContent = `~${estimatedSizeMB.toFixed(1)} MB`;
 }
 
+// Helper function to format elapsed time
+function formatElapsedTime(seconds) {
+    if (seconds < 60) {
+        return `${seconds.toFixed(0)}秒`;
+    } else {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${minutes}分${secs}秒`;
+    }
+}
+// Update elapsed time display
+function updateElapsedTime() {
+    if (!conversionStartTime) return;
+    const elapsed = (Date.now() - conversionStartTime) / 1000;
+    elapsedTimeDisplay.textContent = `経過時間: ${formatElapsedTime(elapsed)}`;
+}
+
 convertBtn.addEventListener('click', () => {
     if (!selectedFile) return;
 
@@ -297,6 +348,10 @@ convertBtn.addEventListener('click', () => {
         originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
         originalAudioBitrate: fileInfo.audio && fileInfo.audio.bitrate > 0 ? fileInfo.audio.bitrate : 128000
     };
+    // Start elapsed time tracking
+    conversionStartTime = Date.now();
+    elapsedTimeDisplay.textContent = '経過時間: 0秒';
+    elapsedTimer = setInterval(updateElapsedTime, 1000);
 
     worker.postMessage({ type: 'start', data: { file: selectedFile, settings } });
 });
@@ -313,26 +368,52 @@ worker.onmessage = (e) => {
     if (type === 'analysis_result') {
         updateFileInfo(data);
     } else if (type === 'progress') {
-        document.getElementById('progress-bar').style.width = `${value}% `;
-        document.getElementById('progress-text').textContent = `処理中: ${value}% `;
+        document.getElementById('progress-bar').style.width = `${value}%`;
+        document.getElementById('progress-text').textContent = `処理中: ${value}%`;
     } else if (type === 'complete') {
+        // Stop timer and show completion time
+        if (elapsedTimer) {
+            clearInterval(elapsedTimer);
+            elapsedTimer = null;
+        }
+        if (conversionStartTime) {
+            const totalTime = (Date.now() - conversionStartTime) / 1000;
+            elapsedTimeDisplay.textContent = `完了時間: ${formatElapsedTime(totalTime)}`;
+        }
+
         document.getElementById('progress-text').textContent = "完了!";
         downloadFile(blob);
         setTimeout(() => {
             convertBtn.classList.remove('hidden');
-            cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
+            cancelBtn.classList.add('hidden');
             document.getElementById('progress-container').classList.add('hidden');
             settingsArea.classList.remove('opacity-50', 'pointer-events-none');
             convertBtn.textContent = "別のファイルを変換";
-        }, 1000);
+        }, 3000); // 3秒間完了時間を表示
     } else if (type === 'cancelled') {
         console.log("Transcoding cancelled by user");
+        // Clean up timer
+        if (elapsedTimer) {
+            clearInterval(elapsedTimer);
+            elapsedTimer = null;
+        }
+        conversionStartTime = null;
+        elapsedTimeDisplay.textContent = '';
+
         convertBtn.classList.remove('hidden');
         cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
         document.getElementById('progress-container').classList.add('hidden');
         settingsArea.classList.remove('opacity-50', 'pointer-events-none');
         showAlert("変換がキャンセルされました");
     } else if (type === 'error') {
+        // Clean up timer
+        if (elapsedTimer) {
+            clearInterval(elapsedTimer);
+            elapsedTimer = null;
+        }
+        conversionStartTime = null;
+        elapsedTimeDisplay.textContent = '';
+
         showAlert(error);
         console.error(error);
         convertBtn.classList.remove('hidden');
@@ -348,7 +429,7 @@ function downloadFile(blob) {
     a.href = url;
     const ext = document.querySelector('input[name="output_format"]:checked').value;
     const baseName = selectedFile.name.split('.').slice(0, -1).join('_') || 'input';
-    a.download = `${baseName} _transcoded.${ext} `;
+    a.download = `${baseName}_transcoded.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
