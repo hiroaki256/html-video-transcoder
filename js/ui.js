@@ -97,6 +97,10 @@ async function checkH265Support() {
         console.log("H.265 not supported");
     }
 }
+
+// Check H.265 support on initialization
+checkH265Support();
+
 const audioOnlyToggle = document.getElementById('audio-only-toggle');
 const videoSettingsSection = document.getElementById('video-settings-section');
 
