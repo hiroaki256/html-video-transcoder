@@ -226,13 +226,25 @@ function updateFileInfo(info) {
     } else {
         originalAudioCodec.textContent = '元のコーデック: 音声なし';
     }
+
+    // コンテナ（出力フォーマット）の自動選択
+    let targetFormat = 'mp4'; // Default
+    if (info.container && info.container.toLowerCase().includes('webm')) {
+        targetFormat = 'webm';
+    } else if (selectedFile && selectedFile.name.toLowerCase().endsWith('.webm')) {
+        targetFormat = 'webm';
+    }
+    // MOV or others default to mp4
+    const formatRadio = document.querySelector(`input[name="output_format"][value="${targetFormat}"]`);
+    if (formatRadio) formatRadio.checked = true;
+
     // コーデックの自動選択（パススルー推奨）
     if (info.video && info.video.codec) {
         const c = info.video.codec.toLowerCase();
         let targetVal = null;
-        if (c.startsWith('avc') || c.startsWith('h264')) targetVal = 'h264';
-        else if (c.startsWith('hvc') || c.startsWith('hev')) targetVal = 'h265';
-        else if (c.startsWith('av01')) targetVal = 'av1';
+        if (c.includes('avc') || c.includes('h264')) targetVal = 'h264';
+        else if (c.includes('hvc') || c.includes('hev')) targetVal = 'h265';
+        else if (c.includes('av01') || c.includes('av1')) targetVal = 'av1';
 
         if (targetVal) {
             const radio = document.querySelector(`input[name="video_codec"][value="${targetVal}"]`);
@@ -245,8 +257,8 @@ function updateFileInfo(info) {
     if (info.audio && info.audio.codec) {
         const c = info.audio.codec.toLowerCase();
         let targetVal = null;
-        if (c.startsWith('mp4a') || c.startsWith('aac')) targetVal = 'aac';
-        else if (c.startsWith('opus')) targetVal = 'opus';
+        if (c.includes('mp4a') || c.includes('aac')) targetVal = 'aac';
+        else if (c.includes('opus')) targetVal = 'opus';
 
         if (targetVal) {
             const radio = document.querySelector(`input[name="audio_codec"][value="${targetVal}"]`);

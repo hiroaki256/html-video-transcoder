@@ -135,11 +135,11 @@ function workerBody() {
         if (!inputCodec) return false;
         const lowerInput = inputCodec.toLowerCase();
 
-        if (targetSetting === 'h264') return lowerInput.startsWith('avc1') || lowerInput.startsWith('h264');
-        if (targetSetting === 'h265') return lowerInput.startsWith('hvc1') || lowerInput.startsWith('hev1');
-        if (targetSetting === 'av1') return lowerInput.startsWith('av01');
-        if (targetSetting === 'aac') return lowerInput.startsWith('mp4a') || lowerInput === 'aac';
-        if (targetSetting === 'opus') return lowerInput.startsWith('opus');
+        if (targetSetting === 'h264') return lowerInput.includes('avc') || lowerInput.includes('h264');
+        if (targetSetting === 'h265') return lowerInput.includes('hvc') || lowerInput.includes('hev');
+        if (targetSetting === 'av1') return lowerInput.includes('av01') || lowerInput.includes('av1');
+        if (targetSetting === 'aac') return lowerInput.includes('mp4a') || lowerInput.includes('aac');
+        if (targetSetting === 'opus') return lowerInput.includes('opus');
         return false;
     }
 
