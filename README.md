@@ -1,109 +1,110 @@
 # WebCodec Transcoder
 
-ブラウザ上で動作する高性能な動画トランスコーダーです。MediaBunnyライブラリを使用し、動画ファイルのフォーマット変換、コーデック変換、ビットレート調整を簡単に行えます。
+A high-performance video transcoder that runs entirely in your browser. Built with the MediaBunny library, it enables easy format conversion, codec switching, and bitrate adjustment for video files.
 
-## 特徴
+## Features
 
-### 🎬 対応フォーマット
-- **入力**: MP4, MOV, WebM
-- **出力**: MP4, WebM
+### 🎬 Supported Formats
+- **Input**: MP4, MOV, WebM
+- **Output**: MP4, WebM
 
-### 🎨 モダンなUI
-- レスポンシブデザイン
-- ダークモード対応
-- ドラッグ&ドロップでファイル選択
-- リアルタイムプログレス表示
+### 🎨 Modern UI
+- Responsive design
+- Dark mode support
+- Drag & drop file selection
+- Real-time progress display
 
-### ⚡ 主要機能
+### ⚡ Key Features
 
-#### 動画変換
-- **コーデック選択**
+#### Video Conversion
+- **Codec Selection**
   - H.264 (AVC)
-  - H.265 (HEVC) - 対応環境のみ
+  - H.265 (HEVC) - supported environments only
   - AV1
-- **ビットレート調整**: 0.1Mbps〜2.0Mbps
-- **パススルーモード**: 元のビットレートを維持
+- **Bitrate Adjustment**: 0.1Mbps to 2.0Mbps
+- **Passthrough Mode**: Maintain original bitrate
 
-#### 音声変換
-- **コーデック選択**
+#### Audio Conversion
+- **Codec Selection**
   - AAC
   - Opus
-- **ビットレート調整**: 32kbps〜128kbps
-- **音声のみ抽出**: 動画から音声だけを取り出す機能
+- **Bitrate Adjustment**: 32kbps to 128kbps
+- **Audio-Only Extraction**: Extract audio track from video
 
-#### その他
-- **ファイルサイズ予測**: 変換前に概算サイズを表示
-- **動画情報表示**: 元のコーデック、ビットレート、解像度などを確認
-- **経過時間表示**: 変換中の経過時間をリアルタイム表示
-- **変換中断**: 処理を途中で停止可能
+#### Additional Features
+- **File Size Estimation**: Preview estimated output size before conversion
+- **Video Information Display**: View original codec, bitrate, resolution, etc.
+- **Elapsed Time Display**: Real-time conversion progress tracking
+- **Cancellation Support**: Stop conversion at any time
 
-## 使い方
+## Usage
 
-### 1. ファイルを選択
-- 「選択」ボタンをクリック、またはファイルをドラッグ&ドロップ
+### 1. Select File
+- Click the "選択" (Select) button or drag & drop a file
 
-### 2. 変換設定
-- **出力フォーマット**: MP4またはWebMを選択
-- **音声のみ抽出**: トグルをONにすると動画設定が非表示になり、音声のみを抽出
-- **動画設定**: コーデックとビットレートを選択
-- **音声設定**: コーデックとビットレートを選択
+### 2. Configure Conversion Settings
+- **Output Format**: Choose MP4 or WebM
+- **Audio-Only Extraction**: Toggle ON to hide video settings and extract audio only
+- **Video Settings**: Select codec and bitrate
+- **Audio Settings**: Select codec and bitrate
 
-### 3. 変換開始
-- 「変換開始」ボタンをクリック
-- 進捗バーで処理状況を確認
-- 完了後、自動的にファイルがダウンロードされます
+### 3. Start Conversion
+- Click the "変換開始" (Start Conversion) button
+- Monitor progress via the progress bar
+- File will automatically download upon completion
 
-## 技術仕様
+## Technical Specifications
 
-### 使用ライブラリ
-- **MediaBunny**: 動画処理のコアライブラリ
-- **Tailwind CSS**: スタイリング
-- **Material Symbols**: アイコン
-- **Space Grotesk**: フォント
+### Libraries Used
+- **MediaBunny**: Core video processing library
+- **Tailwind CSS**: Styling framework
+- **Material Symbols**: Icon set
+- **Space Grotesk**: Typography
 
-### ブラウザ要件
-- Chrome 94以降推奨
-- Edge 94以降推奨
-- Safari、Firefoxでは一部機能が制限される場合があります
+### Browser Requirements
+- Chrome 94+ (recommended)
+- Edge 94+ (recommended)
+- Safari and Firefox may have limited functionality
 
-### アーキテクチャ
+### Architecture
 ```
-index.html          # メインUI
+index.html          # Main UI
 ├── js/
-│   ├── ui.js       # UI制御とイベント処理
-│   └── worker.js   # 動画処理ワーカー（MediaBunny使用）
+│   ├── ui.js       # UI control and event handling
+│   └── worker.js   # Video processing worker (MediaBunny)
 ```
 
-## 開発情報
+## Development
 
-### ファイル構成
+### File Structure
 ```
 WebCodec/
-├── index.html           # メインHTML
+├── index.html           # Main HTML
 ├── js/
-│   ├── ui.js           # UIロジック
-│   └── worker.js       # 変換処理
-├── SPEC.md             # 仕様書
-└── README.md           # このファイル
+│   ├── ui.js           # UI logic
+│   └── worker.js       # Conversion processing
+├── SPEC.md             # Specifications
+├── README.md           # This file (English)
+└── README.ja.md        # Japanese version
 ```
 
-### 主要機能の実装
+### Implementation Details
 
-#### 音声のみ抽出
-`ui.js`で`audio-only-toggle`の状態を監視し、ONの場合は`video-settings-section`を非表示にします。`worker.js`では`audioOnly`フラグを受け取り、MediaBunnyの入力処理で映像トラックをフィルタリングします。
+#### Audio-Only Extraction
+The `ui.js` monitors the state of `audio-only-toggle`, hiding `video-settings-section` when enabled. The `worker.js` receives the `audioOnly` flag and filters video tracks during MediaBunny input processing.
 
-#### ビットレート維持
-スライダーを最大値に設定すると、元のビットレートを維持する「パススルーモード」になります。
+#### Bitrate Passthrough
+Setting the slider to maximum value enables "passthrough mode," which maintains the original bitrate.
 
-#### ファイルサイズ予測
-動画の長さ、選択したビットレート、コーデックの圧縮率から概算サイズを計算します。
+#### File Size Estimation
+Calculates estimated size based on video duration, selected bitrate, and codec compression ratio.
 
-## ライセンス
+## License
 
-このプロジェクトはオープンソースです。
+This project is open source.
 
-## 注意事項
+## Notes
 
-- ブラウザ上で処理を行うため、大きなファイルの場合は時間がかかることがあります
-- H.265エンコードは一部のブラウザでのみサポートされています
-- ファイルはローカルで処理され、サーバーにアップロードされることはありません
+- Processing is done in the browser, so large files may take considerable time
+- H.265 encoding is only supported in certain browsers
+- Files are processed locally and never uploaded to a server
