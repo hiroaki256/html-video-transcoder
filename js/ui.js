@@ -97,7 +97,52 @@ async function checkH265Support() {
         console.log("H.265 not supported");
     }
 }
-checkH265Support();
+const audioOnlyToggle = document.getElementById('audio-only-toggle');
+const videoSettingsSection = document.getElementById('video-settings-section');
+
+// ... (existing code)
+
+audioOnlyToggle.addEventListener('change', (e) => {
+    if (e.target.checked) {
+        videoSettingsSection.classList.add('hidden');
+    } else {
+        videoSettingsSection.classList.remove('hidden');
+    }
+    updateEstimate();
+});
+
+// Update updateEstimate to handle audio-only
+function updateEstimate() {
+    if (!fileInfo) return;
+
+    let targetVideoBitrate = 0;
+    // Only calculate video bitrate if not audio-only
+    if (!audioOnlyToggle.checked && fileInfo.video) {
+        targetVideoBitrate = parseInt(bitrateInput.value);
+        if (targetVideoBitrate >= parseInt(bitrateInput.max)) {
+            targetVideoBitrate = fileInfo.video.bitrate;
+        }
+    }
+
+    let targetAudioBitrate = 0;
+    if (fileInfo.audio) {
+        targetAudioBitrate = parseInt(audioBitrateInput.value);
+        if (targetAudioBitrate >= parseInt(audioBitrateInput.max)) {
+            targetAudioBitrate = fileInfo.audio.bitrate;
+        }
+    }
+
+    if (targetVideoBitrate === 0 && targetAudioBitrate === 0) {
+        estSizeDisplay.textContent = `-- MB`;
+        return;
+    }
+
+    const duration = fileInfo.duration;
+    const totalBits = (targetVideoBitrate + targetAudioBitrate) * duration;
+    const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
+
+    estSizeDisplay.textContent = `~${estimatedSizeMB.toFixed(1)} MB`;
+}
 
 // 2. Event Listeners
 selectBtn.addEventListener('click', () => fileInput.click());
@@ -358,7 +403,9 @@ convertBtn.addEventListener('click', () => {
         videoBitrate: vBitrate,
         audioBitrate: aBitrate,
         originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
-        originalAudioBitrate: fileInfo.audio && fileInfo.audio.bitrate > 0 ? fileInfo.audio.bitrate : 128000
+        originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
+        originalAudioBitrate: fileInfo.audio && fileInfo.audio.bitrate > 0 ? fileInfo.audio.bitrate : 128000,
+        audioOnly: document.getElementById('audio-only-toggle').checked
     };
     // Start elapsed time tracking
     conversionStartTime = Date.now();

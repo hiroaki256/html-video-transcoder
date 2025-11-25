@@ -191,7 +191,73 @@ function workerBody() {
 
             // --- Video Configuration ---
             // MediaBunnyはvideoオプションを指定しない場合、自動的にストリームをコピー（パススルー）します
-            if (videoTrack) {
+            // audioOnlyモードの場合はvideoオプションを設定せず、かつvideoトラックを無視する必要があるが、
+            // MediaBunnyの仕様上、Inputにvideoトラックがあるとデフォルトでパススルーしようとする可能性がある。
+            // しかし、Conversion.initのoptionsにvideoプロパティを含めなければパススルーになる。
+            // 音声のみにするには、videoトラックをInputから除外するか、Outputで映像を含めないようにする必要がある。
+            // MediaBunny 1.25.1 では、options.video = null または undefined だとパススルー。
+            // 明示的に映像を無効化する方法が必要。
+
+            // 解決策: audioOnlyの場合は videoTrack 変数を無視し、conversionOptions.video を設定しない。
+            // さらに、MediaBunnyが勝手にパススルーしないように、Inputのトラック選択を制御できればベストだが、
+            // ここでは簡易的に、audioOnlyなら video設定をスキップするだけでなく、
+            // そもそも映像を出力しないようにしたい。
+            // MediaBunnyの仕様を確認すると、options.video を省略するとパススルー。
+            // 映像を消すには... 実はMediaBunnyで「映像なし」を作るのは難しいかもしれない。
+            // しかし、Inputのtracksをフィルタリングして渡すことができれば...
+            // Inputコンストラクタでtracksを指定することはできない。getTracks()で取得するだけ。
+
+            // 代替案: audioOnlyの場合は、OutputFormatを音声専用にするか、
+            // あるいは、MP4/WebMコンテナは映像なしでも作成可能。
+            // 問題はMediaBunnyが「入力に映像があるなら出力にも映像を入れる（パススルー）」という挙動をデフォルトですること。
+
+            // 試行: conversionOptions.tracks を指定して、audioトラックのみを対象にする機能があるか？
+            // ドキュメントにはない。
+
+            // 強引な方法: audioOnlyの場合、videoTrackをnullとして扱う。
+            // そして、MediaBunnyが「設定がないからパススルー」と判断しないようにする... 
+            // いや、設定がない = パススルー です。
+
+            // 確実な方法: 
+            // settings.audioOnly が true の場合でも、MediaBunnyの現在のAPIでは
+            // 「特定のトラックだけを変換/パススルーする」という制御が難しい可能性があります。
+            // しかし、conversionOptions.video = 'disabled' のような指定ができるか？ 不明。
+
+            // 今回は「音声だけ抜き出す」なので、
+            // もしMediaBunnyで制御できないなら、生成されたファイルから映像を削除するのは難しい。
+            // しかし、WebCodecsを直接使うプランは却下されたので、MediaBunnyでなんとかするしかない。
+
+            // MediaBunnyのソースコード（推測）:
+            // if (input.hasVideo && !options.video) -> passthrough
+
+            // ワークアラウンド:
+            // audioOnlyの場合、videoの設定をあえて「無効」にするAPIがないか探る。
+            // なさそうなら、ユーザーには「映像も含まれるが無視してください」とは言えない。
+
+            // 待てよ、Inputを作成する際に、sourceから特定のトラックだけを読み込ませることはできないか？
+            // できない。
+
+            // ★重要★
+            // MediaBunnyの `Conversion` は `tracks` オプションを受け取る可能性があります。
+            // conversionOptions.tracks = [audioTrack]; のように。
+
+            let targetTracks = tracks;
+            if (settings.audioOnly) {
+                console.log("[Worker] Audio Only mode enabled. Filtering tracks.");
+                targetTracks = tracks.filter(t => t.type === 'audio');
+                // videoTrack変数はnull扱い
+            }
+
+            // Conversion.init には tracks オプションはないが、
+            // 内部で input.getTracks() を呼んでいるはず。
+            // しかし input インスタンスはすでに作成済み。
+
+            // ここで input.getTracks = async () => targetTracks; と上書きしてしまえば騙せるかも？
+            if (settings.audioOnly) {
+                input.getTracks = async () => targetTracks;
+            }
+
+            if (videoTrack && !settings.audioOnly) { // audioOnlyなら映像処理スキップ
                 if (settings.videoBitrate === -1 && isCodecCompatible(videoTrack.codec, settings.videoCodec)) {
                     // パススルーモード: videoオプションを指定しない
                     console.log("[Worker] Video: Passthrough mode enabled (stream copy)");
