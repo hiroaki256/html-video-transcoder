@@ -306,13 +306,23 @@ function workerBody() {
                         (settings.videoCodec === 'av1' ? 'av1' : 'avc');
 
                     console.log("[Worker] Video: Transcoding mode enabled", { codec: encoderCodec, bitrate: targetBitrate });
+
+                    // Extract source video properties for explicit configuration
+                    const width = videoTrack.displayWidth || videoTrack.width;
+                    const height = videoTrack.displayHeight || videoTrack.height;
+                    // Use a safe default framerate if missing (e.g., 30)
+                    const framerate = videoTrack.frameRate || 30;
+
                     conversionOptions.video = {
                         codec: encoderCodec,
-                        bitrate: targetBitrate
-                        // width/heightを指定しないとMediaBunnyが自動的に元の解像度を使用
-                        // MediaBunny v1.25.1では、WebCodecsの低レベル設定（hardwareAcceleration, latencyMode）に
-                        // 直接アクセスできない可能性があるが、内部で最適化されている
+                        bitrate: targetBitrate,
+                        width: width,
+                        height: height,
+                        framerate: framerate,
+                        bitrateMode: 'constant', // Enforce constant bitrate
+                        fit: 'fill' // Required when width/height are specified
                     };
+                    console.log("[Worker] Video configuration:", conversionOptions.video);
                 }
             }
 
