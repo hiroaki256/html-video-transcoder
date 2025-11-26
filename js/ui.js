@@ -426,7 +426,7 @@ cancelBtn.addEventListener('click', () => {
 });
 
 worker.onmessage = (e) => {
-    const { type, value, blob, error, data } = e.data;
+    const { type, value, blob, error, data, outputExtension } = e.data;
 
     if (type === 'analysis_result') {
         updateFileInfo(data);
@@ -445,7 +445,7 @@ worker.onmessage = (e) => {
         }
 
         document.getElementById('progress-text').textContent = "完了!";
-        downloadFile(blob);
+        downloadFile(blob, outputExtension);
         setTimeout(() => {
             convertBtn.classList.remove('hidden');
             cancelBtn.classList.add('hidden');
@@ -486,11 +486,12 @@ worker.onmessage = (e) => {
     }
 };
 
-function downloadFile(blob) {
+function downloadFile(blob, outputExtension) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const ext = document.querySelector('input[name="output_format"]:checked').value;
+    // workerから拡張子が提供されている場合はそれを使用、なければ従来通り
+    const ext = outputExtension || document.querySelector('input[name="output_format"]:checked').value;
     const baseName = selectedFile.name.split('.').slice(0, -1).join('_') || 'input';
     a.download = `${baseName}_transcoded.${ext}`;
     document.body.appendChild(a);

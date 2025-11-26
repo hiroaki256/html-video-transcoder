@@ -172,13 +172,39 @@ function workerBody() {
             const audioTrack = tracks.find(t => t.type === 'audio');
 
             // 出力オプションの設定 (format と target のみ)
+            // 音声のみの場合は適切なオーディオフォーマットを選択
             let outputFormat;
-            if (settings.format === 'mp4') {
-                outputFormat = new MediaBunny.Mp4OutputFormat();
-            } else if (settings.format === 'webm') {
-                outputFormat = new MediaBunny.WebMOutputFormat();
+            let outputMimeType;
+            let outputExtension;
+
+            if (settings.audioOnly) {
+                // 音声のみの場合、コーデックに応じたフォーマットを選択
+                if (settings.audioCodec === 'opus') {
+                    // Opus用のWebMコンテナ（.opus として扱える）
+                    outputFormat = new MediaBunny.WebMOutputFormat();
+                    outputMimeType = 'audio/webm; codecs=opus';
+                    outputExtension = 'opus';
+                } else {
+                    // AAC用のMP4コンテナ (.m4a)
+                    outputFormat = new MediaBunny.Mp4OutputFormat();
+                    outputMimeType = 'audio/mp4';
+                    outputExtension = 'm4a';
+                }
             } else {
-                outputFormat = new MediaBunny.Mp4OutputFormat();
+                // 映像を含む場合は従来通り
+                if (settings.format === 'mp4') {
+                    outputFormat = new MediaBunny.Mp4OutputFormat();
+                    outputMimeType = 'video/mp4';
+                    outputExtension = 'mp4';
+                } else if (settings.format === 'webm') {
+                    outputFormat = new MediaBunny.WebMOutputFormat();
+                    outputMimeType = 'video/webm';
+                    outputExtension = 'webm';
+                } else {
+                    outputFormat = new MediaBunny.Mp4OutputFormat();
+                    outputMimeType = 'video/mp4';
+                    outputExtension = 'mp4';
+                }
             }
 
             const target = new MediaBunny.BufferTarget();
@@ -334,13 +360,14 @@ function workerBody() {
             // ゼロコピー転送: Blobは参照渡しで、postMessage時にTransferableではないが、
             // 内部的にはStructured Clone Algorithmで効率的に転送される
             console.log("[Worker] startTranscode: Creating blob from buffer, size:", target.buffer.byteLength);
-            const blob = new Blob([target.buffer], { type: settings.format === 'mp4' ? 'video/mp4' : 'video/webm' });
-            console.log("[Worker] startTranscode: Blob created, size:", blob.size);
+            const blob = new Blob([target.buffer], { type: outputMimeType });
+            console.log("[Worker] startTranscode: Blob created, size:", blob.size, "type:", outputMimeType);
 
             console.log("[Worker] startTranscode: Posting completion message to main thread");
             self.postMessage({
                 type: 'complete',
-                blob: blob
+                blob: blob,
+                outputExtension: outputExtension
             });
             console.log("[Worker] startTranscode: Completion message posted");
 
