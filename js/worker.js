@@ -308,10 +308,51 @@ function workerBody() {
                     console.log("[Worker] Video: Transcoding mode enabled", { codec: encoderCodec, bitrate: targetBitrate });
 
                     // Extract source video properties for explicit configuration
-                    const width = videoTrack.displayWidth || videoTrack.width;
-                    const height = videoTrack.displayHeight || videoTrack.height;
-                    // Use a safe default framerate if missing (e.g., 30)
-                    const framerate = videoTrack.frameRate || 30;
+                    let width = videoTrack.displayWidth || videoTrack.width;
+                    let height = videoTrack.displayHeight || videoTrack.height;
+                    let framerate = videoTrack.frameRate || 30;
+
+                    // --- Resolution Logic ---
+                    if (settings.resolution && settings.resolution !== 'keep') {
+                        const resolutions = {
+                            '4k': 3840,
+                            'fhd': 1920,
+                            'hd': 1280,
+                            'sd': 854
+                        };
+                        const targetLongSide = resolutions[settings.resolution];
+                        if (targetLongSide) {
+                            const currentLongSide = Math.max(width, height);
+                            // Only scale down if target is smaller than current
+                            if (targetLongSide < currentLongSide) {
+                                const ratio = targetLongSide / currentLongSide;
+                                width = Math.round(width * ratio);
+                                height = Math.round(height * ratio);
+                                // Ensure multiples of 32 (as per UI text)
+                                width = Math.ceil(width / 32) * 32;
+                                height = Math.ceil(height / 32) * 32;
+                            }
+                        }
+                    }
+
+                    // --- FPS Logic ---
+                    if (settings.fps && settings.fps !== 'keep') {
+                        const targetFPS = parseInt(settings.fps);
+                        if (!isNaN(targetFPS)) {
+                            // Smart FPS matching
+                            const isClose = (a, b) => Math.abs(a - b) < 0.1;
+
+                            if (targetFPS === 30 && isClose(framerate, 29.97)) {
+                                framerate = 29.97;
+                            } else if (targetFPS === 60 && isClose(framerate, 59.94)) {
+                                framerate = 59.94;
+                            } else if (targetFPS === 24 && isClose(framerate, 23.976)) {
+                                framerate = 23.976;
+                            } else {
+                                framerate = targetFPS;
+                            }
+                        }
+                    }
 
                     conversionOptions.video = {
                         codec: encoderCodec,

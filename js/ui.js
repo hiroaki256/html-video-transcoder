@@ -34,7 +34,13 @@ const videoBitrateMax = document.getElementById('video-bitrate-max');
 const audioBitrateMax = document.getElementById('audio-bitrate-max');
 const elapsedTimeDisplay = document.getElementById('elapsed-time');
 
-// State
+const presetModeInputs = document.querySelectorAll('input[name="preset_mode"]');
+const resolutionInputs = document.querySelectorAll('input[name="resolution"]');
+const fpsInputs = document.querySelectorAll('input[name="fps"]');
+const resolutionSection = document.getElementById('resolution-section');
+const fpsSection = document.getElementById('fps-section');
+const videoSettingsSection = document.getElementById('video-settings-section');
+const audioSettingsSection = document.querySelector('#video-settings-section + div'); // Audio settings is next sibling
 let selectedFile = null;
 let fileInfo = null;
 let conversionStartTime = null;
@@ -98,24 +104,8 @@ async function checkH265Support() {
     }
 }
 
-// Check H.265 support on initialization
 checkH265Support();
 
-const audioOnlyToggle = document.getElementById('audio-only-toggle');
-const videoSettingsSection = document.getElementById('video-settings-section');
-
-// ... (existing code)
-
-audioOnlyToggle.addEventListener('change', (e) => {
-    if (e.target.checked) {
-        videoSettingsSection.classList.add('hidden');
-    } else {
-        videoSettingsSection.classList.remove('hidden');
-    }
-    updateEstimate();
-});
-
-// Update updateEstimate to handle audio-only
 function updateEstimate() {
     if (!fileInfo) return;
 
@@ -200,6 +190,118 @@ audioBitrateInput.addEventListener('input', (e) => {
     }
     updateEstimate();
 });
+
+// --- New Logic for Simple Settings ---
+
+presetModeInputs.forEach(input => {
+    input.addEventListener('change', (e) => {
+        applyPreset(e.target.value);
+    });
+});
+
+function updateResolutionOptions() {
+    if (!fileInfo || !fileInfo.video) return;
+    const w = fileInfo.video.width;
+    const h = fileInfo.video.height;
+    const longSide = Math.max(w, h);
+
+    const resolutions = {
+        '4k': 3840,
+        'fhd': 1920,
+        'hd': 1280,
+        'sd': 854
+    };
+
+    resolutionInputs.forEach(input => {
+        const label = input.parentElement;
+        const target = resolutions[input.value];
+        if (target > longSide) {
+            input.disabled = true;
+            label.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-100', 'dark:bg-slate-800');
+            label.classList.remove('cursor-pointer', 'hover:bg-slate-200');
+        } else {
+            input.disabled = false;
+            label.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-100', 'dark:bg-slate-800');
+            label.classList.add('cursor-pointer');
+        }
+    });
+}
+
+function getMaxAllowedResolution() {
+    const options = ['4k', 'fhd', 'hd', 'sd'];
+    for (const opt of options) {
+        const input = document.querySelector(`input[name="resolution"][value="${opt}"]`);
+        if (input && !input.disabled) return opt;
+    }
+    return 'sd';
+}
+
+function applyPreset(mode) {
+    if (!fileInfo || !fileInfo.video) return;
+
+    const originalBitrate = fileInfo.video.bitrate;
+    const originalFPS = fileInfo.video.framerate || 30;
+
+    const disableSection = (section, disable) => {
+        if (disable) {
+            section.classList.add('opacity-50', 'pointer-events-none');
+        } else {
+            section.classList.remove('opacity-50', 'pointer-events-none');
+        }
+    };
+
+    const setRadio = (name, value) => {
+        let targetValue = value;
+        if (name === 'resolution') {
+            const input = document.querySelector(`input[name="resolution"][value="${value}"]`);
+            if (input && input.disabled) {
+                targetValue = getMaxAllowedResolution();
+            }
+        }
+
+        const input = document.querySelector(`input[name="${name}"][value="${targetValue}"]`);
+        if (input) input.checked = true;
+    };
+
+    if (mode === 'custom') {
+        disableSection(resolutionSection, false);
+        disableSection(fpsSection, false);
+        disableSection(videoSettingsSection, false);
+        return;
+    }
+
+    disableSection(resolutionSection, true);
+    disableSection(fpsSection, true);
+    disableSection(videoSettingsSection, true);
+
+    let targetBitrate = originalBitrate;
+    let targetFPS = 'keep';
+    let targetResolution = 'sd';
+
+    if (mode === 'low') {
+        targetBitrate = Math.max(1000000, originalBitrate / 4);
+        targetFPS = (originalFPS > 15) ? '15' : 'keep';
+        targetResolution = 'sd';
+    } else if (mode === 'medium') {
+        targetBitrate = Math.max(3000000, originalBitrate / 2);
+        targetFPS = (originalFPS > 30) ? '30' : 'keep';
+        targetResolution = 'hd';
+    } else if (mode === 'high') {
+        targetBitrate = Math.max(6000000, originalBitrate);
+        targetFPS = (originalFPS > 60) ? '60' : 'keep';
+        targetResolution = 'fhd';
+    }
+
+    const maxBitrate = parseInt(bitrateInput.max);
+    const finalBitrate = Math.min(targetBitrate, maxBitrate);
+    bitrateInput.value = finalBitrate;
+    bitrateInput.dispatchEvent(new Event('input'));
+
+    setRadio('fps', targetFPS);
+    setRadio('resolution', targetResolution);
+
+    updateEstimate();
+}
 
 function handleFile(file) {
     if (!file) return;
@@ -336,6 +438,21 @@ function updateFileInfo(info) {
         ` : '<p class="text-sm text-slate-500 dark:text-slate-400">音声ストリームなし</p>'}
     </div>
     `;
+
+    updateResolutionOptions();
+
+    // Default to Custom mode
+    const customPreset = document.querySelector('input[name="preset_mode"][value="custom"]');
+    if (customPreset) {
+        customPreset.checked = true;
+        applyPreset('custom');
+    }
+
+    // Default resolution selection
+    const maxRes = getMaxAllowedResolution();
+    const resInput = document.querySelector(`input[name="resolution"][value="${maxRes}"]`);
+    if (resInput) resInput.checked = true;
+
     updateEstimate();
 }
 
@@ -380,7 +497,9 @@ convertBtn.addEventListener('click', () => {
         originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
         originalVideoBitrate: fileInfo.video && fileInfo.video.bitrate > 0 ? fileInfo.video.bitrate : 2000000,
         originalAudioBitrate: fileInfo.audio && fileInfo.audio.bitrate > 0 ? fileInfo.audio.bitrate : 128000,
-        audioOnly: document.getElementById('audio-only-toggle').checked
+        audioOnly: document.getElementById('audio-only-toggle').checked,
+        resolution: document.querySelector('input[name="resolution"]:checked')?.value || 'sd',
+        fps: document.querySelector('input[name="fps"]:checked')?.value || 'keep'
     };
     // Start elapsed time tracking
     conversionStartTime = Date.now();
