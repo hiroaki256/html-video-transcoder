@@ -339,36 +339,7 @@ function updateFileInfo(info) {
     updateEstimate();
 }
 
-function updateEstimate() {
-    if (!fileInfo) return;
 
-    let targetVideoBitrate = 0;
-    if (fileInfo.video) {
-        targetVideoBitrate = parseInt(bitrateInput.value);
-        if (targetVideoBitrate >= parseInt(bitrateInput.max)) {
-            targetVideoBitrate = fileInfo.video.bitrate;
-        }
-    }
-
-    let targetAudioBitrate = 0;
-    if (fileInfo.audio) {
-        targetAudioBitrate = parseInt(audioBitrateInput.value);
-        if (targetAudioBitrate >= parseInt(audioBitrateInput.max)) {
-            targetAudioBitrate = fileInfo.audio.bitrate;
-        }
-    }
-
-    if (targetVideoBitrate === 0 && targetAudioBitrate === 0) {
-        estSizeDisplay.textContent = `-- MB`;
-        return;
-    }
-
-    const duration = fileInfo.duration;
-    const totalBits = (targetVideoBitrate + targetAudioBitrate) * duration;
-    const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
-
-    estSizeDisplay.textContent = `~${estimatedSizeMB.toFixed(1)} MB`;
-}
 
 // Helper function to format elapsed time
 function formatElapsedTime(seconds) {
