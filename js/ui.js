@@ -110,16 +110,19 @@ checkH265Support();
 const audioOnlyToggle = document.getElementById('audio-only-toggle');
 
 audioOnlyToggle.addEventListener('change', (e) => {
+    const outputFormatSection = document.getElementById('output-format-section');
     const simpleSettingsSection = document.getElementById('simple-settings-section');
     const resolutionSection = document.getElementById('resolution-section');
     const fpsSection = document.getElementById('fps-section');
 
     if (e.target.checked) {
+        if (outputFormatSection) outputFormatSection.classList.add('hidden');
         videoSettingsSection.classList.add('hidden');
         if (simpleSettingsSection) simpleSettingsSection.classList.add('hidden');
         if (resolutionSection) resolutionSection.classList.add('hidden');
         if (fpsSection) fpsSection.classList.add('hidden');
     } else {
+        if (outputFormatSection) outputFormatSection.classList.remove('hidden');
         videoSettingsSection.classList.remove('hidden');
         if (simpleSettingsSection) simpleSettingsSection.classList.remove('hidden');
         if (resolutionSection) resolutionSection.classList.remove('hidden');

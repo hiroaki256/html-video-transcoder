@@ -100,8 +100,24 @@
             <!-- Settings Area -->
             <div class="mt-6 space-y-6 opacity-50 pointer-events-none" id="settings-area">
 
-                <!-- Output Format -->
+                <!-- Audio Only Toggle -->
                 <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <div class="flex items-center justify-between">
+                        <h3
+                            class="text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                            音声だけを抜き出す
+                        </h3>
+                        <label class="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" id="audio-only-toggle" class="peer sr-only">
+                            <div
+                                class="peer h-6 w-11 rounded-full bg-slate-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:bg-slate-600 dark:after:border-slate-600">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Output Format -->
+                <div id="output-format-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         変換先フォーマット</h3>
                     <div
@@ -115,22 +131,6 @@
                             class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input checked="" class="invisible w-0" name="output_format" type="radio" value="mp4" />
                             <span class="truncate">MP4</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Audio Only Toggle -->
-                <div class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
-                    <div class="flex items-center justify-between">
-                        <h3
-                            class="text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
-                            音声だけを抜き出す
-                        </h3>
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input type="checkbox" id="audio-only-toggle" class="peer sr-only">
-                            <div
-                                class="peer h-6 w-11 rounded-full bg-slate-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:bg-slate-600 dark:after:border-slate-600">
-                            </div>
                         </label>
                     </div>
                 </div>
@@ -172,26 +172,32 @@
                         class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         解像度
                     </h3>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div
+                        class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
                         <label id="res-4k-label"
-                            class="flex h-12 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 bg-slate-100 has-[:checked]:bg-primary has-[:checked]:text-white dark:bg-slate-700 dark:text-slate-400 transition-colors">
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input class="invisible w-0" name="resolution" type="radio" value="4k" />
                             <span class="truncate">4K</span>
                         </label>
                         <label id="res-fhd-label"
-                            class="flex h-12 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 bg-slate-100 has-[:checked]:bg-primary has-[:checked]:text-white dark:bg-slate-700 dark:text-slate-400 transition-colors">
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input class="invisible w-0" name="resolution" type="radio" value="fhd" />
-                            <span class="truncate">FullHD</span>
+                            <span class="truncate">FHD</span>
                         </label>
                         <label id="res-hd-label"
-                            class="flex h-12 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 bg-slate-100 has-[:checked]:bg-primary has-[:checked]:text-white dark:bg-slate-700 dark:text-slate-400 transition-colors">
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input class="invisible w-0" name="resolution" type="radio" value="hd" />
                             <span class="truncate">HD</span>
                         </label>
                         <label id="res-sd-label"
-                            class="flex h-12 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 bg-slate-100 has-[:checked]:bg-primary has-[:checked]:text-white dark:bg-slate-700 dark:text-slate-400 transition-colors">
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input class="invisible w-0" name="resolution" type="radio" value="sd" />
                             <span class="truncate">SD</span>
+                        </label>
+                        <label
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            <input checked="" class="invisible w-0" name="resolution" type="radio" value="keep" />
+                            <span class="truncate">維持</span>
                         </label>
                     </div>
                     <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
