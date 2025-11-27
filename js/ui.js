@@ -221,6 +221,7 @@ audioBitrateInput.addEventListener('input', (e) => {
 presetModeInputs.forEach(input => {
     input.addEventListener('change', (e) => {
         applyPreset(e.target.value);
+        updateBoldSelection();
     });
 });
 
@@ -469,20 +470,108 @@ function updateFileInfo(info) {
 
     updateResolutionOptions();
 
-    // Default to Custom mode
+    // Resolution Auto-Selection
+    const width = info.video.width;
+    const height = info.video.height;
+    const longSide = Math.max(width, height);
+    let resValue = 'custom';
+
+    // Tolerance for resolution matching (e.g. 1920x1080 vs 1920x1088)
+    if (Math.abs(longSide - 3840) < 10) resValue = '4k';
+    else if (Math.abs(longSide - 1920) < 10) resValue = 'fhd';
+    else if (Math.abs(longSide - 1280) < 10) resValue = 'hd';
+    else if (Math.abs(longSide - 854) < 10) resValue = 'sd';
+
+    // FPS Auto-Selection
+    const fps = info.video.framerate || 30;
+    let fpsValue = 'custom';
+    const standardFps = [15, 24, 30, 60];
+    // Check for close match (e.g. 29.97 -> 30)
+    for (const sFps of standardFps) {
+        if (Math.abs(fps - sFps) < 0.5) {
+            fpsValue = sFps.toString();
+            break;
+        }
+    }
+
+    // Update Custom Labels
+    const resCustomText = document.getElementById('res-custom-text');
+    if (resCustomText) {
+        resCustomText.textContent = `カスタム (${width}x${height})`;
+    }
+    const fpsCustomText = document.getElementById('fps-custom-text');
+    if (fpsCustomText) {
+        fpsCustomText.textContent = `カスタム (${fps.toFixed(2)})`;
+    }
+
+    // Apply selections
+    const resInput = document.querySelector(`input[name="resolution"][value="${resValue}"]`);
+    if (resInput && !resInput.disabled) {
+        resInput.checked = true;
+    } else {
+        // Fallback if calculated resolution is disabled (e.g. 4K on small video? logic in updateResolutionOptions handles max)
+        // If custom is selected but disabled (shouldn't happen for custom), fallback to max allowed
+        if (resValue !== 'custom') {
+            const maxRes = getMaxAllowedResolution();
+            const fallbackInput = document.querySelector(`input[name="resolution"][value="${maxRes}"]`);
+            if (fallbackInput) fallbackInput.checked = true;
+        } else {
+            // If custom is somehow disabled or we want to force custom
+            const customInput = document.querySelector(`input[name="resolution"][value="custom"]`);
+            if (customInput) customInput.checked = true;
+        }
+    }
+
+    const fpsInput = document.querySelector(`input[name="fps"][value="${fpsValue}"]`);
+    if (fpsInput) fpsInput.checked = true;
+    else {
+        const customFpsInput = document.querySelector(`input[name="fps"][value="custom"]`);
+        if (customFpsInput) customFpsInput.checked = true;
+    }
+
+    // Default to Custom preset mode if we are setting specific values
+    // But if it matches a preset, maybe we should select that? 
+    // For now, let's stick to "Custom" (Freedom) mode to avoid confusion, or keep it simple.
+    // The requirement says: "If the video's resolution/FPS matches a standard preset, bold that specific preset option."
+    // It doesn't explicitly say to change the "Simple Settings Mode" to Low/Mid/High.
+    // So we select "Custom" (Freedom) in Simple Settings to allow these specific selections.
     const customPreset = document.querySelector('input[name="preset_mode"][value="custom"]');
     if (customPreset) {
         customPreset.checked = true;
-        applyPreset('custom');
+        applyPreset('custom'); // This enables all sections
     }
 
-    // Default resolution selection
-    const maxRes = getMaxAllowedResolution();
-    const resInput = document.querySelector(`input[name="resolution"][value="${maxRes}"]`);
-    if (resInput) resInput.checked = true;
-
     updateEstimate();
+    updateBoldSelection(); // Call to bold the selected options
 }
+
+function updateBoldSelection() {
+    // Helper to bold the label of the checked input and unbold others
+    const updateBold = (name) => {
+        document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+            const labelSpan = input.nextElementSibling;
+            if (input.checked) {
+                labelSpan.classList.add('font-bold');
+            } else {
+                labelSpan.classList.remove('font-bold');
+            }
+        });
+    };
+
+    updateBold('resolution');
+    updateBold('fps');
+    updateBold('preset_mode');
+}
+
+// Add listeners to update bolding when user changes selection
+document.querySelectorAll('input[name="resolution"], input[name="fps"], input[name="preset_mode"]').forEach(input => {
+    input.addEventListener('change', () => {
+        updateBoldSelection();
+        if (input.name === 'preset_mode') {
+            applyPreset(input.value);
+        }
+    });
+});
 
 
 

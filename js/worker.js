@@ -91,18 +91,29 @@ function workerBody() {
             if (videoTrack) videoBitrate = await getTrackBitrate(videoTrack);
             if (audioTrack) audioBitrate = await getTrackBitrate(audioTrack);
 
-            // Fallback to file size based estimation if specific bitrates are missing
             if ((!videoBitrate && videoTrack) || (!audioBitrate && audioTrack)) {
                 const globalBitrate = (file.size * 8) / duration;
                 if (videoTrack && !videoBitrate) {
-                    // Assume video takes up most of the space (e.g. 90% if audio exists, 100% if not)
                     const ratio = audioTrack ? 0.9 : 1.0;
                     videoBitrate = globalBitrate * ratio;
                 }
                 if (audioTrack && !audioBitrate) {
-                    // Assume audio takes remaining or small chunk (e.g. 128kbps or 10%)
-                    // If we have video bitrate, use remainder, otherwise 10%
                     audioBitrate = videoBitrate ? (globalBitrate - videoBitrate) : (globalBitrate * 0.1);
+                }
+            }
+
+            // Improve FPS detection
+            if (videoTrack && !videoTrack.frameRate) {
+                // Try to calculate FPS from stats if available
+                if (videoTrack.computePacketStats) {
+                    try {
+                        const stats = await videoTrack.computePacketStats();
+                        if (stats.sampleCount && duration > 0) {
+                            videoTrack.frameRate = stats.sampleCount / duration;
+                        }
+                    } catch (e) {
+                        console.warn("[Worker] Failed to compute stats for FPS:", e);
+                    }
                 }
             }
 
