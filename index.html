@@ -255,7 +255,7 @@
                             <span class="truncate">H.264</span>
                         </label>
                         <label id="h265-option"
-                            class="hidden flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                             <input class="invisible w-0" name="video_codec" type="radio" value="h265" />
                             <span class="truncate">H.265</span>
                         </label>
@@ -377,6 +377,33 @@
 
     <script src="js/worker.js"></script>
     <script src="js/ui.js"></script>
+</body>
+
+</html>
+</div>
+</div>
+
+<!-- Modal -->
+<input class="peer hidden" id="video-info-modal" type="checkbox" />
+<div class="modal-backdrop fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm">
+    <div
+        class="modal-content absolute bottom-0 left-0 right-0 w-full translate-y-full rounded-t-xl bg-background-light p-4 pt-2 opacity-0 transition-all duration-300 dark:bg-slate-800">
+        <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+        <h2 class="mb-4 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+            現在の動画情報</h2>
+        <div class="space-y-3" id="modal-info-content">
+            <p class="text-center text-slate-500">ファイルが選択されていません。</p>
+        </div>
+        <label
+            class="mt-6 block w-full cursor-pointer rounded-xl bg-primary py-3 text-center text-base font-bold text-white"
+            for="video-info-modal">閉じる</label>
+    </div>
+    <label class="fixed inset-0 z-[-1] hidden h-full w-full cursor-pointer" for="video-info-modal"></label>
+</div>
+</div>
+
+<script src="js/worker.js"></script>
+<script src="js/ui.js"></script>
 </body>
 
 </html>

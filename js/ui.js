@@ -93,15 +93,21 @@ async function checkH265Support() {
         bitrate: 2000000,
         framerate: 30
     };
-    try {
-        const support = await VideoEncoder.isConfigSupported(config);
+    VideoEncoder.isConfigSupported(config).then(support => {
+        const h265Input = h265Option.querySelector('input');
         if (support.supported) {
-            h265Option.classList.remove('hidden');
-            h265Option.classList.add('flex');
+            h265Option.classList.remove('opacity-30', 'cursor-not-allowed');
+            if (h265Input) h265Input.disabled = false;
+        } else {
+            h265Option.classList.add('opacity-30', 'cursor-not-allowed');
+            if (h265Input) h265Input.disabled = true;
         }
-    } catch (e) {
-        console.log("H.265 not supported");
-    }
+    }).catch(e => {
+        console.error('H.265 check failed:', e);
+        const h265Input = h265Option.querySelector('input');
+        h265Option.classList.add('opacity-30', 'cursor-not-allowed');
+        if (h265Input) h265Input.disabled = true;
+    });
 }
 
 checkH265Support();
