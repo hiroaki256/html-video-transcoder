@@ -292,12 +292,14 @@ function applyPreset(mode) {
         disableSection(resolutionSection, false);
         disableSection(fpsSection, false);
         disableSection(videoSettingsSection, false);
+        disableSection(audioSettingsSection, false);
         return;
     }
 
     disableSection(resolutionSection, true);
     disableSection(fpsSection, true);
     disableSection(videoSettingsSection, true);
+    disableSection(audioSettingsSection, true);
 
     let targetBitrate = originalBitrate;
     let targetFPS = 'keep';
@@ -452,6 +454,7 @@ function updateFileInfo(info) {
         ${info.video ? `
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">コーデック</span><span class="font-medium text-slate-800 dark:text-white">${info.video.codec}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">解像度</span><span class="font-medium text-slate-800 dark:text-white">${info.video.width}x${info.video.height}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">FPS</span><span class="font-medium text-slate-800 dark:text-white">${info.video.framerate ? info.video.framerate.toFixed(2) : '不明'}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">ビットレート</span><span class="font-medium text-slate-800 dark:text-white">${Math.round(info.video.bitrate / 1000)} kbps</span></div>
         ` : '<p class="text-sm text-slate-500 dark:text-slate-400">映像ストリームなし</p>'}
 
