@@ -158,7 +158,7 @@ function updateEstimate() {
     }
 
     if (targetVideoBitrate === 0 && targetAudioBitrate === 0) {
-        estSizeDisplay.textContent = `-- MB`;
+        document.getElementById('est-size-text').textContent = `予想サイズ: -- MB`;
         return;
     }
 
@@ -166,7 +166,7 @@ function updateEstimate() {
     const totalBits = (targetVideoBitrate + targetAudioBitrate) * duration;
     const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
 
-    estSizeDisplay.textContent = `~${estimatedSizeMB.toFixed(1)} MB`;
+    document.getElementById('est-size-text').textContent = `予想サイズ: ~${estimatedSizeMB.toFixed(1)} MB`;
 }
 
 // 2. Event Listeners
@@ -298,15 +298,13 @@ function applyPreset(mode) {
     if (mode === 'custom') {
         disableSection(resolutionSection, false);
         disableSection(fpsSection, false);
-        disableSection(videoSettingsSection, false);
-        disableSection(audioSettingsSection, false);
+        // Keep codec settings always enabled
         return;
     }
 
     disableSection(resolutionSection, true);
     disableSection(fpsSection, true);
-    disableSection(videoSettingsSection, true);
-    disableSection(audioSettingsSection, true);
+    // Keep codec settings always enabled
 
     let targetBitrate = originalBitrate;
     let targetFPS = 'keep';
@@ -346,6 +344,10 @@ function handleFile(file) {
 
     settingsArea.classList.add('opacity-50', 'pointer-events-none');
     convertBtn.disabled = true;
+
+    // Clear previous completion time when selecting new file
+    document.getElementById('progress-text').textContent = '処理中: 0%';
+    conversionStartTime = null;
 
     updateInfoLinkState(true);
 
@@ -595,7 +597,8 @@ function formatElapsedTime(seconds) {
 function updateElapsedTime() {
     if (!conversionStartTime) return;
     const elapsed = (Date.now() - conversionStartTime) / 1000;
-    elapsedTimeDisplay.textContent = `経過時間: ${formatElapsedTime(elapsed)}`;
+    const percentage = document.getElementById('progress-bar').style.width.replace('%', '') || '0';
+    document.getElementById('progress-text').textContent = `処理中: ${percentage}% (${formatElapsedTime(elapsed)})`;
 }
 
 convertBtn.addEventListener('click', () => {
@@ -645,7 +648,13 @@ worker.onmessage = (e) => {
         updateFileInfo(data);
     } else if (type === 'progress') {
         document.getElementById('progress-bar').style.width = `${value}%`;
-        document.getElementById('progress-text').textContent = `処理中: ${value}%`;
+        // Update progress text with elapsed time
+        if (conversionStartTime) {
+            const elapsed = (Date.now() - conversionStartTime) / 1000;
+            document.getElementById('progress-text').textContent = `処理中: ${value}% (${formatElapsedTime(elapsed)})`;
+        } else {
+            document.getElementById('progress-text').textContent = `処理中: ${value}%`;
+        }
     } else if (type === 'complete') {
         // Stop timer and show completion time
         if (elapsedTimer) {
@@ -654,10 +663,9 @@ worker.onmessage = (e) => {
         }
         if (conversionStartTime) {
             const totalTime = (Date.now() - conversionStartTime) / 1000;
-            elapsedTimeDisplay.textContent = `完了時間: ${formatElapsedTime(totalTime)}`;
+            document.getElementById('progress-text').textContent = `完了! (処理時間: ${formatElapsedTime(totalTime)})`;
         }
 
-        document.getElementById('progress-text').textContent = "完了!";
         downloadFile(blob, outputExtension);
         setTimeout(() => {
             convertBtn.classList.remove('hidden');
@@ -674,7 +682,6 @@ worker.onmessage = (e) => {
             elapsedTimer = null;
         }
         conversionStartTime = null;
-        elapsedTimeDisplay.textContent = '';
 
         convertBtn.classList.remove('hidden');
         cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
@@ -688,7 +695,6 @@ worker.onmessage = (e) => {
             elapsedTimer = null;
         }
         conversionStartTime = null;
-        elapsedTimeDisplay.textContent = '';
 
         showAlert(error);
         console.error(error);
