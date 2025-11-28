@@ -157,22 +157,6 @@
                             <span class="truncate">AV1</span>
                         </label>
                     </div>
-
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(Mbps)</p>
-                        <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">現在のビットレートを維持</p>
-                    </div>
-                    <div class="relative mt-1">
-                        <input id="bitrate-input"
-                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
-                            max="2000000" min="100000" step="100000" type="range" value="2000000" />
-                        <div class="mt-1 flex justify-between text-xs text-slate-400">
-                            <span>0.1M</span>
-                            <span id="video-bitrate-mid">中</span>
-                            <span id="video-bitrate-max">維持</span>
-                        </div>
-                    </div>
-                    <p><br /></p>
                     <!-- Audio Settings -->
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         音声コーデック</h3>
@@ -193,8 +177,7 @@
 
                 <!-- Simple Settings Mode -->
                 <div id="simple-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
-                    <h3
-                        class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         プリセット画質
                     </h3>
                     <div
@@ -221,9 +204,33 @@
                         </label>
                     </div>
                     <p><br /></p>
-                    <!-- Bitrate -->
+                    <!-- Video Bitrate -->
+                    <h3
+                        class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        映像ビットレート(Mbps)
+                    </h3>
                     <div class="flex items-center justify-between">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(kbps)</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
+                        <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">現在のビットレートを維持</p>
+                    </div>
+                    <div class="relative mt-1">
+                        <input id="bitrate-input"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
+                            max="2000000" min="100000" step="100000" type="range" value="2000000" />
+                        <div class="mt-1 flex justify-between text-xs text-slate-400">
+                            <span>0.1M</span>
+                            <span id="video-bitrate-mid">中</span>
+                            <span id="video-bitrate-max">維持</span>
+                        </div>
+                    </div>
+                    <p><br /></p>
+                    <!-- Audio Bitrate -->
+                    <h3
+                        class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                        音声ビットレート(kbps)
+                    </h3>
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
                         <p class="font-medium text-slate-800 dark:text-white" id="audio-bitrate-display">現在のビットレートを維持
                         </p>
                     </div>
@@ -237,8 +244,8 @@
                             <span id="audio-bitrate-max">維持</span>
                         </div>
                     </div>
-                    <!-- Resolution Selection -->
                     <p><br /></p>
+                    <!-- Resolution Selection -->
                     <h3
                         class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         解像度
@@ -329,7 +336,8 @@
             <!-- Progress Bar (Hidden initially) -->
             <div id="progress-container" class="hidden w-full mt-2">
                 <div class="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700 mb-1">
-                    <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                    <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%">
+                    </div>
                 </div>
 
                 <p id="elapsed-time" class="text-center text-xs text-slate-600 dark:text-slate-400 mt-1"></p>
@@ -341,7 +349,8 @@
         <div class="modal-backdrop fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm">
             <div
                 class="modal-content absolute bottom-0 left-0 right-0 w-full translate-y-full rounded-t-xl bg-background-light p-4 pt-2 opacity-0 transition-all duration-300 dark:bg-slate-800">
-                <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600">
+                </div>
                 <h2
                     class="mb-4 text-center text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                     現在の動画情報</h2>

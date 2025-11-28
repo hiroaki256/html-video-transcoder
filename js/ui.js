@@ -681,6 +681,7 @@ worker.onmessage = (e) => {
             document.getElementById('progress-text').textContent = `処理中: ${value}%`;
         }
         */
+        const elapsed = conversionStartTime ? (Date.now() - conversionStartTime) / 1000 : 0;
         cancelBtn.textContent = `中断 (${value}% ${formatElapsedTime(elapsed)})`;
         // Update button text with progress
         convertBtn.textContent = `処理中: ${value}%`;
