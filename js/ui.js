@@ -22,7 +22,7 @@ const audioBitrateInput = document.getElementById('audio-bitrate-input');
 const audioBitrateDisplay = document.getElementById('audio-bitrate-display');
 const audioBitrateMid = document.getElementById('audio-bitrate-mid');
 
-const estSizeDisplay = document.getElementById('est-size');
+
 const infoLinkContainer = document.getElementById('info-link-container');
 const infoLinkLabel = document.getElementById('info-link-label');
 const modalInfoContent = document.getElementById('modal-info-content');
@@ -158,7 +158,7 @@ function updateEstimate() {
     }
 
     if (targetVideoBitrate === 0 && targetAudioBitrate === 0) {
-        document.getElementById('est-size-text').textContent = `予想サイズ: -- MB`;
+        convertBtn.textContent = `変換開始 (予想サイズ: -- MB)`;
         return;
     }
 
@@ -166,7 +166,7 @@ function updateEstimate() {
     const totalBits = (targetVideoBitrate + targetAudioBitrate) * duration;
     const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
 
-    document.getElementById('est-size-text').textContent = `予想サイズ: ~${estimatedSizeMB.toFixed(1)} MB`;
+    convertBtn.textContent = `変換開始 (予想サイズ: ~${estimatedSizeMB.toFixed(1)} MB)`;
 }
 
 // 2. Event Listeners
@@ -613,6 +613,14 @@ convertBtn.addEventListener('click', () => {
     document.getElementById('progress-bar').style.width = '0%';
     document.getElementById('progress-text').textContent = "処理中: 0%";
 
+    // Keep size estimate in button text if possible, or just "処理中..."
+    // User requested: "Expected size should be on the 'Start Conversion' button. Same during conversion"
+    // We need to recalculate or grab the current text.
+    // The current text is "変換開始 (予想: ~XX MB)". We can replace "変換開始" with "処理中...".
+    const currentText = convertBtn.textContent;
+    const sizePart = currentText.match(/\(.*\)/) ? currentText.match(/\(.*\)/)[0] : '';
+    convertBtn.textContent = `処理中... ${sizePart}`;
+
     const vBitrate = parseInt(bitrateInput.value) >= parseInt(bitrateInput.max) ? -1 : parseInt(bitrateInput.value);
     const aBitrate = parseInt(audioBitrateInput.value) >= parseInt(audioBitrateInput.max) ? -1 : parseInt(audioBitrateInput.value);
 
@@ -674,7 +682,8 @@ worker.onmessage = (e) => {
             cancelBtn.classList.add('hidden');
             document.getElementById('progress-container').classList.add('hidden');
             settingsArea.classList.remove('opacity-50', 'pointer-events-none');
-            convertBtn.textContent = "別のファイルを変換";
+            // Revert to "Start Conversion" with estimate
+            updateEstimate();
         }, 3000); // 3秒間完了時間を表示
     } else if (type === 'cancelled') {
         console.log("Transcoding cancelled by user");
