@@ -139,8 +139,6 @@
                 <div id="video-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         動画コーデック</h3>
-                    <p class="mb-1 text-xs text-slate-400 dark:text-slate-500" id="original-video-codec">元のコーデック: 未選択
-                    </p>
                     <div
                         class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
                         <label
@@ -174,14 +172,10 @@
                             <span id="video-bitrate-max">維持</span>
                         </div>
                     </div>
-                </div>
-
-                <!-- Audio Settings -->
-                <div id="audio-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <p><br /></p>
+                    <!-- Audio Settings -->
                     <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         音声コーデック</h3>
-                    <p class="mb-1 text-xs text-slate-400 dark:text-slate-500" id="original-audio-codec">元のコーデック: 未選択
-                    </p>
                     <div
                         class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
                         <label
@@ -195,29 +189,13 @@
                             <span class="truncate">Opus</span>
                         </label>
                     </div>
-
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(kbps)</p>
-                        <p class="font-medium text-slate-800 dark:text-white" id="audio-bitrate-display">現在のビットレートを維持
-                        </p>
-                    </div>
-                    <div class="relative mt-1">
-                        <input id="audio-bitrate-input"
-                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
-                            max="128000" min="32000" step="8000" type="range" value="128000" />
-                        <div class="mt-1 flex justify-between text-xs text-slate-400">
-                            <span>32k</span>
-                            <span id="audio-bitrate-mid">中</span>
-                            <span id="audio-bitrate-max">維持</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Simple Settings Mode -->
                 <div id="simple-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
                     <h3
                         class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
-                        簡単設定モード
+                        プリセット画質
                     </h3>
                     <div
                         class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
@@ -242,10 +220,25 @@
                             <span class="truncate">自由</span>
                         </label>
                     </div>
-                </div>
-
-                <!-- Resolution Selection -->
-                <div id="resolution-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <p><br /></p>
+                    <!-- Bitrate -->
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">ビットレート(kbps)</p>
+                        <p class="font-medium text-slate-800 dark:text-white" id="audio-bitrate-display">現在のビットレートを維持
+                        </p>
+                    </div>
+                    <div class="relative mt-1">
+                        <input id="audio-bitrate-input"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary dark:bg-slate-700"
+                            max="128000" min="32000" step="8000" type="range" value="128000" />
+                        <div class="mt-1 flex justify-between text-xs text-slate-400">
+                            <span>32k</span>
+                            <span id="audio-bitrate-mid">中</span>
+                            <span id="audio-bitrate-max">維持</span>
+                        </div>
+                    </div>
+                    <!-- Resolution Selection -->
+                    <p><br /></p>
                     <h3
                         class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         解像度
@@ -281,10 +274,9 @@
                     <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
                         元の縦横比を維持し、長辺を基準に32の倍数で調整されます。
                     </p>
-                </div>
+                    <p><br /></p>
 
-                <!-- FPS Selection -->
-                <div id="fps-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
+                    <!-- FPS Selection -->
                     <h3
                         class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                         FPS
@@ -318,9 +310,6 @@
                         </label>
                     </div>
                 </div>
-
-
-
             </div>
         </main>
 
@@ -342,7 +331,7 @@
                 <div class="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700 mb-1">
                     <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
-                <p id="progress-text" class="text-center text-sm font-bold text-slate-800 dark:text-white">処理中: 0%</p>
+
                 <p id="elapsed-time" class="text-center text-xs text-slate-600 dark:text-slate-400 mt-1"></p>
             </div>
         </div>

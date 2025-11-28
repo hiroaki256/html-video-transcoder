@@ -28,8 +28,6 @@ const infoLinkLabel = document.getElementById('info-link-label');
 const modalInfoContent = document.getElementById('modal-info-content');
 const videoInfoModalCheckbox = document.getElementById('video-info-modal');
 const h265Option = document.getElementById('h265-option');
-const originalVideoCodec = document.getElementById('original-video-codec');
-const originalAudioCodec = document.getElementById('original-audio-codec');
 const videoBitrateMax = document.getElementById('video-bitrate-max');
 const audioBitrateMax = document.getElementById('audio-bitrate-max');
 const elapsedTimeDisplay = document.getElementById('elapsed-time');
@@ -346,7 +344,7 @@ function handleFile(file) {
     convertBtn.disabled = true;
 
     // Clear previous completion time when selecting new file
-    document.getElementById('progress-text').textContent = '処理中: 0%';
+    // document.getElementById('progress-text').textContent = '処理中: 0%';
     conversionStartTime = null;
 
     updateInfoLinkState(true);
@@ -402,18 +400,6 @@ function updateFileInfo(info) {
     audioBitrateDisplay.textContent = "現在のビットレートを維持";
     audioBitrateMid.textContent = Math.round(maxAudioBitrate / 2 / 1000) + "k";
     audioBitrateMax.textContent = Math.round(maxAudioBitrate / 1000) + "k";
-
-    // Display original codecs
-    if (info.video && info.video.codec) {
-        originalVideoCodec.textContent = `元のコーデック: ${getCodecDisplayName(info.video.codec)}`;
-    } else {
-        originalVideoCodec.textContent = '元のコーデック: 映像なし';
-    }
-    if (info.audio && info.audio.codec) {
-        originalAudioCodec.textContent = `元のコーデック: ${getCodecDisplayName(info.audio.codec)}`;
-    } else {
-        originalAudioCodec.textContent = '元のコーデック: 音声なし';
-    }
 
     // コンテナ（出力フォーマット）の自動選択
     let targetFormat = 'mp4'; // Default
@@ -495,12 +481,19 @@ function updateFileInfo(info) {
     // FPS Auto-Selection
     const fps = info.video.framerate || 30;
     let fpsValue = 'custom';
-    const standardFps = [15, 24, 30, 60];
-    // Check for close match (e.g. 29.97 -> 30)
-    for (const sFps of standardFps) {
-        if (Math.abs(fps - sFps) < 0.5) {
-            fpsValue = sFps.toString();
-            break;
+
+    // Specific logic for 15, 30, 60 (handling ~29.97 etc)
+    if (Math.abs(fps - 15) < 1.0 || Math.abs(fps - 14.47) < 0.1) fpsValue = '15';
+    else if (Math.abs(fps - 30) < 1.0 || Math.abs(fps - 29.97) < 0.1) fpsValue = '30';
+    else if (Math.abs(fps - 60) < 1.0 || Math.abs(fps - 59.94) < 0.1) fpsValue = '60';
+    else {
+        // Fallback to standard check if not matched above
+        const standardFps = [15, 24, 30, 60];
+        for (const sFps of standardFps) {
+            if (Math.abs(fps - sFps) < 0.5) {
+                fpsValue = sFps.toString();
+                break;
+            }
         }
     }
 
@@ -551,6 +544,34 @@ function updateFileInfo(info) {
         applyPreset('custom'); // This enables all sections
     }
 
+    // Update Resolution Description
+    const resDesc = document.getElementById('resolution-desc');
+    if (resDesc && info.video) {
+        resDesc.textContent = `現在のサイズ：${info.video.width}px x ${info.video.height}px (元の縦横比を維持し、長辺を基準に32の倍数で調整されます。)`;
+    }
+
+    // Disable FPS options higher than source
+    const sourceFps = info.video ? (info.video.framerate || 30) : 30;
+    fpsInputs.forEach(input => {
+        if (input.value === 'keep') return; // Always enable 'keep'
+        const val = parseInt(input.value);
+        const label = input.parentElement;
+        if (val > sourceFps) {
+            input.disabled = true;
+            label.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-100', 'dark:bg-slate-800');
+            label.classList.remove('cursor-pointer', 'hover:bg-slate-200');
+            if (input.checked) {
+                // If the disabled option was checked (unlikely on new file, but possible), switch to 'keep'
+                const keepInput = document.querySelector('input[name="fps"][value="keep"]');
+                if (keepInput) keepInput.checked = true;
+            }
+        } else {
+            input.disabled = false;
+            label.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-100', 'dark:bg-slate-800');
+            label.classList.add('cursor-pointer');
+        }
+    });
+
     updateEstimate();
     updateBoldSelection(); // Call to bold the selected options
 }
@@ -585,22 +606,19 @@ document.querySelectorAll('input[name="resolution"], input[name="fps"], input[na
 
 
 
-// Helper function to format elapsed time
+// Helper function to format elapsed time [mm:ss]
 function formatElapsedTime(seconds) {
-    if (seconds < 60) {
-        return `${seconds.toFixed(0)}秒`;
-    } else {
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${minutes}分${secs}秒`;
-    }
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `[${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
 }
 // Update elapsed time display
 function updateElapsedTime() {
     if (!conversionStartTime) return;
     const elapsed = (Date.now() - conversionStartTime) / 1000;
     const percentage = document.getElementById('progress-bar').style.width.replace('%', '') || '0';
-    document.getElementById('progress-text').textContent = `処理中: ${percentage}% (${formatElapsedTime(elapsed)})`;
+    // document.getElementById('progress-text').textContent = `処理中: ${percentage}% (${formatElapsedTime(elapsed)})`;
+    cancelBtn.textContent = `中断 (${percentage}% ${formatElapsedTime(elapsed)})`;
 }
 
 convertBtn.addEventListener('click', () => {
@@ -611,15 +629,11 @@ convertBtn.addEventListener('click', () => {
     document.getElementById('progress-container').classList.remove('hidden');
     settingsArea.classList.add('opacity-50', 'pointer-events-none');
     document.getElementById('progress-bar').style.width = '0%';
-    document.getElementById('progress-text').textContent = "処理中: 0%";
+    // document.getElementById('progress-text').textContent = "処理中: 0%";
+    cancelBtn.textContent = "中断 (0%)";
 
-    // Keep size estimate in button text if possible, or just "処理中..."
-    // User requested: "Expected size should be on the 'Start Conversion' button. Same during conversion"
-    // We need to recalculate or grab the current text.
-    // The current text is "変換開始 (予想: ~XX MB)". We can replace "変換開始" with "処理中...".
-    const currentText = convertBtn.textContent;
-    const sizePart = currentText.match(/\(.*\)/) ? currentText.match(/\(.*\)/)[0] : '';
-    convertBtn.textContent = `処理中... ${sizePart}`;
+    // Show progress % on button during conversion
+    convertBtn.textContent = "処理中: 0%";
 
     const vBitrate = parseInt(bitrateInput.value) >= parseInt(bitrateInput.max) ? -1 : parseInt(bitrateInput.value);
     const aBitrate = parseInt(audioBitrateInput.value) >= parseInt(audioBitrateInput.max) ? -1 : parseInt(audioBitrateInput.value);
@@ -659,12 +673,17 @@ worker.onmessage = (e) => {
     } else if (type === 'progress') {
         document.getElementById('progress-bar').style.width = `${value}%`;
         // Update progress text with elapsed time
+        /*
         if (conversionStartTime) {
             const elapsed = (Date.now() - conversionStartTime) / 1000;
             document.getElementById('progress-text').textContent = `処理中: ${value}% (${formatElapsedTime(elapsed)})`;
         } else {
             document.getElementById('progress-text').textContent = `処理中: ${value}%`;
         }
+        */
+        cancelBtn.textContent = `中断 (${value}% ${formatElapsedTime(elapsed)})`;
+        // Update button text with progress
+        convertBtn.textContent = `処理中: ${value}%`;
     } else if (type === 'complete') {
         // Stop timer and show completion time
         if (elapsedTimer) {
@@ -673,7 +692,7 @@ worker.onmessage = (e) => {
         }
         if (conversionStartTime) {
             const totalTime = (Date.now() - conversionStartTime) / 1000;
-            document.getElementById('progress-text').textContent = `完了! (処理時間: ${formatElapsedTime(totalTime)})`;
+            // document.getElementById('progress-text').textContent = `完了! (処理時間: ${formatElapsedTime(totalTime)})`;
         }
 
         downloadFile(blob, outputExtension);
@@ -698,7 +717,10 @@ worker.onmessage = (e) => {
         cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
         document.getElementById('progress-container').classList.add('hidden');
         settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+        settingsArea.classList.remove('opacity-50', 'pointer-events-none');
         showAlert("変換がキャンセルされました");
+        // Revert to "Start Conversion" with estimate
+        updateEstimate();
     } else if (type === 'error') {
         // Clean up timer
         if (elapsedTimer) {
@@ -713,6 +735,8 @@ worker.onmessage = (e) => {
         cancelBtn.classList.add('hidden'); // キャンセルボタンを隠す
         document.getElementById('progress-container').classList.add('hidden');
         settingsArea.classList.remove('opacity-50', 'pointer-events-none');
+        // Revert to "Start Conversion" with estimate
+        updateEstimate();
     }
 };
 
