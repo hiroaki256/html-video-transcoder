@@ -327,7 +327,28 @@ function applyPreset(mode) {
             }
         }
 
-        const input = document.querySelector(`input[name="${name}"][value="${targetValue}"]`);
+        // Try exact match first
+        let input = document.querySelector(`input[name="${name}"][value="${targetValue}"]`);
+
+        // Fuzzy match for FPS if exact match fails (e.g. target '15' vs input '14.985')
+        if (!input && name === 'fps' && value !== 'keep') {
+            const targetNum = parseFloat(targetValue);
+            if (!isNaN(targetNum)) {
+                const inputs = document.querySelectorAll(`input[name="${name}"]`);
+                let minDiff = 0.5; // Tolerance
+                inputs.forEach(inp => {
+                    const val = parseFloat(inp.value);
+                    if (!isNaN(val)) {
+                        const diff = Math.abs(val - targetNum);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            input = inp;
+                        }
+                    }
+                });
+            }
+        }
+
         if (input) input.checked = true;
     };
 
@@ -348,16 +369,14 @@ function applyPreset(mode) {
 
         setRadio('resolution', getResolutionKey(fileInfo.video.width, fileInfo.video.height));
         setRadio('fps', getStandardFpsKey(originalFPS));
-
-        // コーデック設定は常に有効のままにする
         return;
     }
 
     disableSection(resolutionSection, true);
+    // FPSセクションも無効にする（ユーザー要望により変更）
     disableSection(fpsSection, true);
     disableSection(videoBitrateContainer, true);
     disableSection(audioBitrateContainer, true);
-    // コーデック設定は常に有効のままにする
 
     let targetBitrate = originalBitrate;
     let targetFPS = 'keep';
