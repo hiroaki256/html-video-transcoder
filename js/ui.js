@@ -33,14 +33,16 @@ const audioBitrateMax = document.getElementById('audio-bitrate-max');
 const elapsedTimeDisplay = document.getElementById('elapsed-time');
 
 const presetModeInputs = document.querySelectorAll('input[name="preset_mode"]');
+const presetContainer = document.getElementById('preset-container');
 const resolutionInputs = document.querySelectorAll('input[name="resolution"]');
 const fpsInputs = document.querySelectorAll('input[name="fps"]');
 const resolutionSection = document.getElementById('resolution-section');
 const fpsSection = document.getElementById('fps-section');
+const videoCodecContainer = document.getElementById('video-codec-container');
 const videoSettingsSection = document.getElementById('video-settings-section');
 const audioSettingsSection = document.querySelector('#video-settings-section + div'); // 音声設定は次の兄弟要素
-const videoBitrateSection = document.getElementById('video-bitrate-section');
-const audioBitrateSection = document.getElementById('audio-bitrate-section');
+const videoBitrateContainer = document.getElementById('video-bitrate-container');
+const audioBitrateContainer = document.getElementById('audio-bitrate-container');
 const resolutionValueDisplay = document.getElementById('resolution-value-display');
 const fpsValueDisplay = document.getElementById('fps-value-display');
 
@@ -125,17 +127,31 @@ audioOnlyToggle.addEventListener('change', (e) => {
     const fpsSection = document.getElementById('fps-section');
 
     if (e.target.checked) {
+        // Audio Only Mode: Hide video related sections
         if (outputFormatSection) outputFormatSection.classList.add('hidden');
-        videoSettingsSection.classList.add('hidden');
-        if (simpleSettingsSection) simpleSettingsSection.classList.add('hidden');
+        // if (simpleSettingsSection) simpleSettingsSection.classList.add('hidden');
+        if (presetContainer) presetContainer.classList.add('hidden');
         if (resolutionSection) resolutionSection.classList.add('hidden');
         if (fpsSection) fpsSection.classList.add('hidden');
+        if (videoCodecContainer) videoCodecContainer.classList.add('hidden');
+        if (videoBitrateContainer) videoBitrateContainer.classList.add('hidden');
+        // if (audioBitrateContainer) audioBitrateContainer.classList.remove('hidden');
+
+        // Ensure Audio Codec is visible (it's inside videoSettingsSection which was previously hidden entirely)
+        // We need to make sure videoSettingsSection itself is visible, but hide its video parts
+        // if (videoSettingsSection) videoSettingsSection.classList.add('hidden');
+        // if (audioCodecContainer) audioCodecContainer.classList.remove('hidden');
+
     } else {
+        // Normal Mode: Show all sections
         if (outputFormatSection) outputFormatSection.classList.remove('hidden');
-        videoSettingsSection.classList.remove('hidden');
-        if (simpleSettingsSection) simpleSettingsSection.classList.remove('hidden');
+        // if (simpleSettingsSection) simpleSettingsSection.classList.remove('hidden');
+        if (presetContainer) presetContainer.classList.remove('hidden');
         if (resolutionSection) resolutionSection.classList.remove('hidden');
         if (fpsSection) fpsSection.classList.remove('hidden');
+        if (videoCodecContainer) videoCodecContainer.classList.remove('hidden');
+        if (videoBitrateContainer) videoBitrateContainer.classList.remove('hidden');
+        // if (audioBitrateContainer) audioBitrateContainer.classList.remove('hidden');
     }
     updateEstimate();
 });
@@ -301,16 +317,16 @@ function applyPreset(mode) {
     if (mode === 'custom') {
         disableSection(resolutionSection, false);
         disableSection(fpsSection, false);
-        disableSection(videoBitrateSection, false);
-        disableSection(audioBitrateSection, false);
+        disableSection(videoBitrateContainer, false);
+        disableSection(audioBitrateContainer, false);
         // コーデック設定は常に有効のままにする
         return;
     }
 
     disableSection(resolutionSection, true);
     disableSection(fpsSection, true);
-    disableSection(videoBitrateSection, true);
-    disableSection(audioBitrateSection, true);
+    disableSection(videoBitrateContainer, true);
+    disableSection(audioBitrateContainer, true);
     // コーデック設定は常に有効のままにする
 
     let targetBitrate = originalBitrate;

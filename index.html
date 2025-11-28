@@ -137,82 +137,93 @@
 
                 <!-- Video Settings -->
                 <div id="video-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
-                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
-                        動画コーデック</h3>
-                    <div
-                        class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input checked="" class="invisible w-0" name="video_codec" type="radio" value="h264" />
-                            <span class="truncate">H.264</span>
-                        </label>
-                        <label id="h265-option"
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input class="invisible w-0" name="video_codec" type="radio" value="h265" />
-                            <span class="truncate">H.265</span>
-                        </label>
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input class="invisible w-0" name="video_codec" type="radio" value="av1" />
-                            <span class="truncate">AV1</span>
-                        </label>
+                    <div id="video-codec-container">
+                        <h3
+                            class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                            動画コーデック</h3>
+                        <div
+                            class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input checked="" class="invisible w-0" name="video_codec" type="radio" value="h264" />
+                                <span class="truncate">H.264</span>
+                            </label>
+                            <label id="h265-option"
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input class="invisible w-0" name="video_codec" type="radio" value="h265" />
+                                <span class="truncate">H.265</span>
+                            </label>
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input class="invisible w-0" name="video_codec" type="radio" value="av1" />
+                                <span class="truncate">AV1</span>
+                            </label>
+                        </div>
                     </div>
                     <!-- Audio Settings -->
-                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
-                        音声コーデック</h3>
-                    <div
-                        class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
-                            <input checked="" class="invisible w-0" name="audio_codec" type="radio" value="aac" />
-                            <span class="truncate">AAC</span>
-                        </label>
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
-                            <input class="invisible w-0" name="audio_codec" type="radio" value="opus" />
-                            <span class="truncate">Opus</span>
-                        </label>
+                    <div id="audio-codec-container">
+                        <h3
+                            class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                            音声コーデック</h3>
+                        <div
+                            class="mb-4 flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50">
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
+                                <input checked="" class="invisible w-0" name="audio_codec" type="radio" value="aac" />
+                                <span class="truncate">AAC</span>
+                            </label>
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400">
+                                <input class="invisible w-0" name="audio_codec" type="radio" value="opus" />
+                                <span class="truncate">Opus</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Simple Settings Mode -->
                 <div id="simple-settings-section" class="rounded-xl bg-white p-4 dark:bg-slate-800/50">
-                    <h3 class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
-                        プリセット画質
-                    </h3>
-                    <div
-                        class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input class="invisible w-0" name="preset_mode" type="radio" value="low" />
-                            <span class="truncate">低</span>
-                        </label>
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input class="invisible w-0" name="preset_mode" type="radio" value="medium" />
-                            <span class="truncate">中</span>
-                        </label>
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input class="invisible w-0" name="preset_mode" type="radio" value="high" />
-                            <span class="truncate">高</span>
-                        </label>
-                        <label
-                            class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
-                            <input checked="" class="invisible w-0" name="preset_mode" type="radio" value="custom" />
-                            <span class="truncate">自由</span>
-                        </label>
+                    <div id="preset-container">
+                        <h3
+                            class="mb-3 text-lg font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
+                            プリセット画質
+                        </h3>
+                        <div
+                            class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input class="invisible w-0" name="preset_mode" type="radio" value="low" />
+                                <span class="truncate">低</span>
+                            </label>
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input class="invisible w-0" name="preset_mode" type="radio" value="medium" />
+                                <span class="truncate">中</span>
+                            </label>
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input class="invisible w-0" name="preset_mode" type="radio" value="high" />
+                                <span class="truncate">高</span>
+                            </label>
+                            <label
+                                class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
+                                <input checked="" class="invisible w-0" name="preset_mode" type="radio"
+                                    value="custom" />
+                                <span class="truncate">自由</span>
+                            </label>
+                        </div>
+                        <p><br /></p>
                     </div>
-                    <p><br /></p>
                     <!-- Video Bitrate -->
-                    <div id="video-bitrate-section">
+                    <div id="video-bitrate-container">
                         <h3
                             class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                             映像ビットレート(Mbps)
                         </h3>
                         <div class="flex items-center justify-between">
                             <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
-                            <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">現在のビットレートを維持</p>
+                            <p class="font-medium text-slate-800 dark:text-white" id="bitrate-display">
+                                現在のビットレートを維持</p>
                         </div>
                         <div class="relative mt-1">
                             <input id="bitrate-input"
@@ -224,10 +235,10 @@
                                 <span id="video-bitrate-max">カスタム</span>
                             </div>
                         </div>
+                        <p><br /></p>
                     </div>
-                    <p><br /></p>
                     <!-- Audio Bitrate -->
-                    <div id="audio-bitrate-section">
+                    <div id="audio-bitrate-container">
                         <h3
                             class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                             音声ビットレート(kbps)
@@ -248,8 +259,8 @@
                                 <span id="audio-bitrate-max">カスタム</span>
                             </div>
                         </div>
+                        <p><br /></p>
                     </div>
-                    <p><br /></p>
                     <!-- Resolution Selection -->
                     <div id="resolution-section">
                         <h3
@@ -258,7 +269,8 @@
                         </h3>
                         <div class="flex items-center justify-between">
                             <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
-                            <p class="font-medium text-slate-800 dark:text-white" id="resolution-value-display"></p>
+                            <p class="font-medium text-slate-800 dark:text-white" id="resolution-value-display">
+                            </p>
                         </div>
                         <div
                             class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
@@ -291,8 +303,8 @@
                         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
                             元の縦横比を維持し、長辺を基準に32の倍数で調整されます。
                         </p>
+                        <p><br /></p>
                     </div>
-                    <p><br /></p>
 
                     <!-- FPS Selection -->
                     <div id="fps-section">
