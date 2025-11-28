@@ -221,7 +221,7 @@
                             <div class="mt-1 flex justify-between text-xs text-slate-400">
                                 <span>0.1M</span>
                                 <span id="video-bitrate-mid">中</span>
-                                <span id="video-bitrate-max">維持</span>
+                                <span id="video-bitrate-max">カスタム</span>
                             </div>
                         </div>
                     </div>
@@ -245,7 +245,7 @@
                             <div class="mt-1 flex justify-between text-xs text-slate-400">
                                 <span>32k</span>
                                 <span id="audio-bitrate-mid">中</span>
-                                <span id="audio-bitrate-max">維持</span>
+                                <span id="audio-bitrate-max">カスタム</span>
                             </div>
                         </div>
                     </div>
@@ -256,6 +256,10 @@
                             class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                             解像度
                         </h3>
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
+                            <p class="font-medium text-slate-800 dark:text-white" id="resolution-value-display"></p>
+                        </div>
                         <div
                             class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
                             <label id="res-sd-label"
@@ -281,7 +285,7 @@
                             <label
                                 class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                                 <input checked="" class="invisible w-0" name="resolution" type="radio" value="keep" />
-                                <span class="truncate">維持</span>
+                                <span class="truncate">カスタム</span>
                             </label>
                         </div>
                         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
@@ -296,6 +300,10 @@
                             class="mb-3 text-base font-bold leading-tight tracking-[-0.015em] text-slate-800 dark:text-white">
                             FPS
                         </h3>
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm text-slate-500 dark:text-slate-400"> </p>
+                            <p class="font-medium text-slate-800 dark:text-white" id="fps-value-display"></p>
+                        </div>
                         <div
                             class="flex h-10 w-full items-center justify-center rounded-lg bg-slate-200 p-1 dark:bg-slate-700/50 gap-1">
                             <label
@@ -321,7 +329,7 @@
                             <label
                                 class="flex h-full flex-1 cursor-pointer items-center justify-center overflow-hidden rounded-md px-2 text-sm font-medium leading-normal text-slate-600 has-[:checked]:bg-primary has-[:checked]:text-white dark:text-slate-400 transition-colors">
                                 <input checked="" class="invisible w-0" name="fps" type="radio" value="keep" />
-                                <span class="truncate">維持</span>
+                                <span class="truncate">カスタム</span>
                             </label>
                         </div>
                     </div>

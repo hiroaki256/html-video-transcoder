@@ -41,6 +41,8 @@ const videoSettingsSection = document.getElementById('video-settings-section');
 const audioSettingsSection = document.querySelector('#video-settings-section + div'); // Audio settings is next sibling
 const videoBitrateSection = document.getElementById('video-bitrate-section');
 const audioBitrateSection = document.getElementById('audio-bitrate-section');
+const resolutionValueDisplay = document.getElementById('resolution-value-display');
+const fpsValueDisplay = document.getElementById('fps-value-display');
 
 let selectedFile = null;
 let fileInfo = null;
@@ -581,6 +583,59 @@ function updateFileInfo(info) {
 
     updateEstimate();
     updateBoldSelection(); // Call to bold the selected options
+    updateDisplayValues();
+}
+
+function updateDisplayValues() {
+    if (!fileInfo || !fileInfo.video) return;
+
+    // --- Resolution ---
+    let width = fileInfo.video.width;
+    let height = fileInfo.video.height;
+    const selectedRes = document.querySelector('input[name="resolution"]:checked')?.value || 'keep';
+
+    if (selectedRes !== 'keep') {
+        const longSide = Math.max(width, height);
+        const aspectRatio = width / height;
+        let targetLongSide = longSide;
+
+        if (selectedRes === '4k') targetLongSide = 3840;
+        else if (selectedRes === 'fhd') targetLongSide = 1920;
+        else if (selectedRes === 'hd') targetLongSide = 1280;
+        else if (selectedRes === 'sd') targetLongSide = 854;
+
+        // If target is smaller than source, scale down
+        if (targetLongSide < longSide) {
+            if (width >= height) {
+                width = targetLongSide;
+                height = Math.round(width / aspectRatio);
+            } else {
+                height = targetLongSide;
+                width = Math.round(height * aspectRatio);
+            }
+            // Ensure multiple of 2 (or 32 as per description, but standard is usually 2 or 4 for codecs)
+            // The description says "multiple of 32", let's respect that if possible, or at least even numbers.
+            // Let's stick to simple scaling for display purposes, maybe round to 2.
+            width = Math.round(width / 2) * 2;
+            height = Math.round(height / 2) * 2;
+        }
+    }
+    if (resolutionValueDisplay) {
+        resolutionValueDisplay.textContent = `${width}x${height}`;
+    }
+
+    // --- FPS ---
+    let fps = fileInfo.video.framerate || 30;
+    const selectedFps = document.querySelector('input[name="fps"]:checked')?.value || 'keep';
+
+    if (selectedFps !== 'keep') {
+        fps = parseFloat(selectedFps);
+    }
+
+    if (fpsValueDisplay) {
+        // format to max 2 decimal places, e.g. 29.97, 30, 60
+        fpsValueDisplay.textContent = `${parseFloat(fps.toFixed(2))}fps`;
+    }
 }
 
 function updateBoldSelection() {
@@ -608,6 +663,7 @@ document.querySelectorAll('input[name="resolution"], input[name="fps"], input[na
         if (input.name === 'preset_mode') {
             applyPreset(input.value);
         }
+        updateDisplayValues();
     });
 });
 
