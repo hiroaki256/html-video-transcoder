@@ -39,6 +39,9 @@ const resolutionSection = document.getElementById('resolution-section');
 const fpsSection = document.getElementById('fps-section');
 const videoSettingsSection = document.getElementById('video-settings-section');
 const audioSettingsSection = document.querySelector('#video-settings-section + div'); // Audio settings is next sibling
+const videoBitrateSection = document.getElementById('video-bitrate-section');
+const audioBitrateSection = document.getElementById('audio-bitrate-section');
+
 let selectedFile = null;
 let fileInfo = null;
 let conversionStartTime = null;
@@ -296,12 +299,16 @@ function applyPreset(mode) {
     if (mode === 'custom') {
         disableSection(resolutionSection, false);
         disableSection(fpsSection, false);
+        disableSection(videoBitrateSection, false);
+        disableSection(audioBitrateSection, false);
         // Keep codec settings always enabled
         return;
     }
 
     disableSection(resolutionSection, true);
     disableSection(fpsSection, true);
+    disableSection(videoBitrateSection, true);
+    disableSection(audioBitrateSection, true);
     // Keep codec settings always enabled
 
     let targetBitrate = originalBitrate;
@@ -682,7 +689,7 @@ worker.onmessage = (e) => {
         }
         */
         const elapsed = conversionStartTime ? (Date.now() - conversionStartTime) / 1000 : 0;
-        cancelBtn.textContent = `中断 (${value}% ${formatElapsedTime(elapsed)})`;
+        cancelBtn.textContent = `中断 (${value}%)  ${formatElapsedTime(elapsed)}`;
         // Update button text with progress
         convertBtn.textContent = `処理中: ${value}%`;
     } else if (type === 'complete') {
