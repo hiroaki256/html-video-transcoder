@@ -202,7 +202,10 @@ function updateEstimate() {
 
         if (isMaintain && compatible) {
             // Passthrough case: No warning needed
-            if (audioBitrateWarning) audioBitrateWarning.classList.add('hidden');
+            if (audioBitrateWarning) {
+                audioBitrateWarning.classList.add('hidden');
+                convertBtn.disabled = false;
+            }
         } else {
             // Transcoding case: Worker uses 48000Hz / 2ch
             const sampleRate = 48000;
@@ -212,8 +215,10 @@ function updateEstimate() {
                 if (audioBitrateWarning) {
                     if (supported) {
                         audioBitrateWarning.classList.add('hidden');
+                        convertBtn.disabled = false;
                     } else {
                         audioBitrateWarning.classList.remove('hidden');
+                        convertBtn.disabled = true;
                     }
                 }
             });
