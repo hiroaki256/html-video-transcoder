@@ -369,6 +369,7 @@ function getCodecDisplayName(codec) {
 }
 
 function updateFileInfo(info) {
+    console.log("[UI] updateFileInfo received:", info);
     fileInfo = info;
     fileStatusDisplay.textContent = `${info.container} | ${(info.fileSize / 1024 / 1024).toFixed(1)} MB`;
     settingsArea.classList.remove('opacity-50', 'pointer-events-none');
@@ -458,12 +459,13 @@ function updateFileInfo(info) {
         <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">コンテナ</span><span class="font-medium text-slate-800 dark:text-white">${info.container}</span></div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">ファイルサイズ</span><span class="font-medium text-slate-800 dark:text-white">${(info.fileSize / 1024 / 1024).toFixed(2)} MB</span></div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">再生時間</span><span class="font-medium text-slate-800 dark:text-white">${info.duration.toFixed(2)} 秒</span></div>
+
         
         <p class="text-xs font-bold text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-700">映像ストリーム</p>
         ${info.video ? `
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">コーデック</span><span class="font-medium text-slate-800 dark:text-white">${info.video.codec}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">解像度</span><span class="font-medium text-slate-800 dark:text-white">${info.video.width}x${info.video.height}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">FPS</span><span class="font-medium text-slate-800 dark:text-white">${info.video.framerate ? info.video.framerate.toFixed(2) : '不明'}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">FPS</span><span class="font-medium text-slate-800 dark:text-white">${info.video.framerate ? info.video.framerate.toFixed(2) + ' fps' : '不明'}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-slate-500 dark:text-slate-400">ビットレート</span><span class="font-medium text-slate-800 dark:text-white">${Math.round(info.video.bitrate / 1000)} kbps</span></div>
         ` : '<p class="text-sm text-slate-500 dark:text-slate-400">映像ストリームなし</p>'}
 
@@ -629,7 +631,7 @@ convertBtn.addEventListener('click', () => {
     };
     // Start elapsed time tracking
     conversionStartTime = Date.now();
-    elapsedTimeDisplay.textContent = '経過時間: 0秒';
+
     elapsedTimer = setInterval(updateElapsedTime, 1000);
 
     worker.postMessage({ type: 'start', data: { file: selectedFile, settings } });

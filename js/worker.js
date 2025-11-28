@@ -103,17 +103,31 @@ function workerBody() {
             }
 
             // Improve FPS detection
-            if (videoTrack && !videoTrack.frameRate) {
-                // Try to calculate FPS from stats if available
-                if (videoTrack.computePacketStats) {
-                    try {
-                        const stats = await videoTrack.computePacketStats();
-                        if (stats.sampleCount && duration > 0) {
-                            videoTrack.frameRate = stats.sampleCount / duration;
+            if (videoTrack) {
+                console.log("[Worker] Video Track:", videoTrack);
+                if (!videoTrack.frameRate) {
+                    console.log("[Worker] frameRate missing, trying to compute...");
+                    // Try to calculate FPS from stats if available
+                    if (videoTrack.computePacketStats) {
+                        try {
+                            const stats = await videoTrack.computePacketStats();
+                            console.log("[Worker] Packet stats:", stats);
+
+                            if (stats.averagePacketRate) {
+                                videoTrack.frameRate = stats.averagePacketRate;
+                                console.log("[Worker] Using averagePacketRate for FPS:", videoTrack.frameRate);
+                            } else if ((stats.sampleCount || stats.packetCount) && duration > 0) {
+                                videoTrack.frameRate = (stats.sampleCount || stats.packetCount) / duration;
+                                console.log("[Worker] Computed FPS from count:", videoTrack.frameRate);
+                            }
+                        } catch (e) {
+                            console.warn("[Worker] Failed to compute stats for FPS:", e);
                         }
-                    } catch (e) {
-                        console.warn("[Worker] Failed to compute stats for FPS:", e);
+                    } else {
+                        console.log("[Worker] computePacketStats not available");
                     }
+                } else {
+                    console.log("[Worker] frameRate found:", videoTrack.frameRate);
                 }
             }
 
@@ -126,7 +140,8 @@ function workerBody() {
                     width: videoTrack.displayWidth || videoTrack.width,
                     height: videoTrack.displayHeight || videoTrack.height,
                     bitrate: Math.round(videoBitrate),
-                    fps: videoTrack.frameRate || 0
+                    fps: videoTrack.frameRate || 0,
+                    framerate: videoTrack.frameRate || 0 // UI互換性のために追加
                 } : null,
                 audio: audioTrack ? {
                     codec: audioTrack.codec,
