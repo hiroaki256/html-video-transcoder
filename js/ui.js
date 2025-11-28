@@ -30,6 +30,8 @@ const videoInfoModalCheckbox = document.getElementById('video-info-modal');
 const h265Option = document.getElementById('h265-option');
 const videoBitrateMax = document.getElementById('video-bitrate-max');
 const audioBitrateMax = document.getElementById('audio-bitrate-max');
+const audioBitrateMin = document.getElementById('audio-bitrate-min');
+const audioBitrateWarning = document.getElementById('audio-bitrate-warning');
 const elapsedTimeDisplay = document.getElementById('elapsed-time');
 
 const presetModeInputs = document.querySelectorAll('input[name="preset_mode"]');
@@ -186,6 +188,70 @@ function updateEstimate() {
     const estimatedSizeMB = totalBits / 8 / 1024 / 1024;
 
     convertBtn.textContent = `変換開始 (予想サイズ: ~${estimatedSizeMB.toFixed(1)} MB)`;
+
+    // Check audio config support
+    if (fileInfo && fileInfo.audio) {
+        const codec = document.querySelector('input[name="audio_codec"]:checked')?.value;
+        const isMaintain = parseInt(audioBitrateInput.value) >= parseInt(audioBitrateInput.max);
+
+        // Use target bitrate if set, otherwise original
+        const bitrate = targetAudioBitrate > 0 ? targetAudioBitrate : fileInfo.audio.bitrate;
+
+        // Check for passthrough
+        const compatible = isCodecCompatible(fileInfo.audio.codec, codec);
+
+        if (isMaintain && compatible) {
+            // Passthrough case: No warning needed
+            if (audioBitrateWarning) audioBitrateWarning.classList.add('hidden');
+        } else {
+            // Transcoding case: Worker uses 48000Hz / 2ch
+            const sampleRate = 48000;
+            const channels = 2;
+
+            checkAudioConfigSupport(codec, bitrate, sampleRate, channels).then(supported => {
+                if (audioBitrateWarning) {
+                    if (supported) {
+                        audioBitrateWarning.classList.add('hidden');
+                    } else {
+                        audioBitrateWarning.classList.remove('hidden');
+                    }
+                }
+            });
+        }
+    }
+}
+
+function isCodecCompatible(inputCodec, targetSetting) {
+    if (!inputCodec) return false;
+    const lowerInput = inputCodec.toLowerCase();
+
+    if (targetSetting === 'aac') return lowerInput.includes('mp4a') || lowerInput.includes('aac');
+    if (targetSetting === 'opus') return lowerInput.includes('opus');
+    return false;
+}
+
+async function checkAudioConfigSupport(codec, bitrate, sampleRate, channels) {
+    if (!codec) return true;
+
+    // Map UI codec names to valid codec strings for AudioEncoder
+    let codecString = codec;
+    if (codec === 'aac') codecString = 'mp4a.40.2';
+    if (codec === 'opus') codecString = 'opus';
+
+    const config = {
+        codec: codecString,
+        sampleRate: sampleRate,
+        numberOfChannels: channels,
+        bitrate: bitrate
+    };
+
+    try {
+        const support = await AudioEncoder.isConfigSupported(config);
+        return support.supported;
+    } catch (e) {
+        console.warn("Audio config check failed:", e);
+        return true; // Assume supported on error to avoid blocking
+    }
 }
 
 // 2. イベントリスナー
@@ -239,6 +305,37 @@ audioBitrateInput.addEventListener('input', (e) => {
         audioBitrateDisplay.textContent = Math.round(val / 1000) + " kbps";
     }
     updateEstimate();
+});
+
+
+function updateAudioBitrateRange() {
+    const audioCodec = document.querySelector('input[name="audio_codec"]:checked')?.value;
+    if (!audioCodec) return;
+
+    let minBitrate = 32000; // Default AAC
+    let minLabel = "32k";
+
+    if (audioCodec === 'opus') {
+        minBitrate = 16000;
+        minLabel = "16k";
+    }
+
+    audioBitrateInput.min = minBitrate;
+    if (audioBitrateMin) audioBitrateMin.textContent = minLabel;
+
+    // If current value is below new min, clamp it
+    if (parseInt(audioBitrateInput.value) < minBitrate) {
+        audioBitrateInput.value = minBitrate;
+        audioBitrateInput.dispatchEvent(new Event('input'));
+    }
+    updateEstimate();
+}
+
+document.querySelectorAll('input[name="audio_codec"]').forEach(input => {
+    input.addEventListener('change', () => {
+        updateAudioBitrateRange();
+        updateEstimate();
+    });
 });
 
 // --- 簡易設定モードの新しいロジック ---
@@ -549,6 +646,8 @@ function updateFileInfo(info) {
             labelSpan.textContent = text;
         }
     });
+
+    updateAudioBitrateRange(); // Initialize range based on default/detected codec
 
     modalInfoContent.innerHTML = `
     <div class="space-y-3">
