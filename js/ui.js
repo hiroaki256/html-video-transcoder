@@ -319,6 +319,19 @@ function applyPreset(mode) {
         disableSection(fpsSection, false);
         disableSection(videoBitrateContainer, false);
         disableSection(audioBitrateContainer, false);
+
+        // Reset to original values (Keep)
+        const maxBitrate = parseInt(bitrateInput.max);
+        bitrateInput.value = maxBitrate;
+        bitrateInput.dispatchEvent(new Event('input'));
+
+        const maxAudioBitrate = parseInt(audioBitrateInput.max);
+        audioBitrateInput.value = maxAudioBitrate;
+        audioBitrateInput.dispatchEvent(new Event('input'));
+
+        setRadio('resolution', 'keep');
+        setRadio('fps', 'keep');
+
         // コーデック設定は常に有効のままにする
         return;
     }
@@ -333,17 +346,25 @@ function applyPreset(mode) {
     let targetFPS = 'keep';
     let targetResolution = 'sd';
 
+    const getStandardFpsKey = (fps) => {
+        if (Math.abs(fps - 15) < 1.0 || Math.abs(fps - 14.47) < 0.1) return '15';
+        if (Math.abs(fps - 24) < 1.0 || Math.abs(fps - 23.976) < 0.1) return '24';
+        if (Math.abs(fps - 30) < 1.0 || Math.abs(fps - 29.97) < 0.1) return '30';
+        if (Math.abs(fps - 60) < 1.0 || Math.abs(fps - 59.94) < 0.1) return '60';
+        return 'keep';
+    };
+
     if (mode === 'low') {
         targetBitrate = Math.max(1000000, originalBitrate / 4);
-        targetFPS = (originalFPS > 15) ? '15' : 'keep';
+        targetFPS = (originalFPS > 15) ? '15' : getStandardFpsKey(originalFPS);
         targetResolution = 'sd';
     } else if (mode === 'medium') {
         targetBitrate = Math.max(3000000, originalBitrate / 2);
-        targetFPS = (originalFPS > 30) ? '30' : 'keep';
+        targetFPS = (originalFPS > 30) ? '30' : getStandardFpsKey(originalFPS);
         targetResolution = 'hd';
     } else if (mode === 'high') {
         targetBitrate = Math.max(6000000, originalBitrate);
-        targetFPS = (originalFPS > 60) ? '60' : 'keep';
+        targetFPS = (originalFPS > 60) ? '60' : getStandardFpsKey(originalFPS);
         targetResolution = 'fhd';
     }
 
