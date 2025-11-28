@@ -560,8 +560,8 @@ function updateFileInfo(info) {
 
     const originalAudioBitrate = info.audio && info.audio.bitrate > 0 ? info.audio.bitrate : 128000;
     const SAFE_MAX_AUDIO = 320000;
-    // ステップを1kbpsに固定
-    const audioStep = 1000;
+    // ステップを16kbpsに固定
+    const audioStep = 16000;
     // 最大値をステップの倍数に切り上げ
     const maxAudioBitrate = Math.ceil(Math.min(Math.max(originalAudioBitrate, 32000), SAFE_MAX_AUDIO) / audioStep) * audioStep;
 
