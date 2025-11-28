@@ -421,33 +421,69 @@ function updateFileInfo(info) {
     const formatRadio = document.querySelector(`input[name="output_format"][value="${targetFormat}"]`);
     if (formatRadio) formatRadio.checked = true;
 
+    // フォーマットのラベル更新
+    document.querySelectorAll('input[name="output_format"]').forEach(input => {
+        const labelSpan = input.nextElementSibling;
+        if (labelSpan && labelSpan.tagName === 'SPAN') {
+            let text = labelSpan.textContent.replace(/[\[\]]/g, '').trim();
+            if (input.value === targetFormat) {
+                text = `[ ${text} ]`;
+            }
+            labelSpan.textContent = text;
+        }
+    });
+
     // コーデックの自動選択（パススルー推奨）
+    let targetVideoCodec = null;
     if (info.video && info.video.codec) {
         const c = info.video.codec.toLowerCase();
-        let targetVal = null;
-        if (c.includes('avc') || c.includes('h264')) targetVal = 'h264';
-        else if (c.includes('hvc') || c.includes('hev')) targetVal = 'h265';
-        else if (c.includes('av01') || c.includes('av1')) targetVal = 'av1';
+        if (c.includes('avc') || c.includes('h264')) targetVideoCodec = 'h264';
+        else if (c.includes('hvc') || c.includes('hev')) targetVideoCodec = 'h265';
+        else if (c.includes('av01') || c.includes('av1')) targetVideoCodec = 'av1';
 
-        if (targetVal) {
-            const radio = document.querySelector(`input[name="video_codec"][value="${targetVal}"]`);
+        if (targetVideoCodec) {
+            const radio = document.querySelector(`input[name="video_codec"][value="${targetVideoCodec}"]`);
             if (radio && !radio.disabled && !radio.parentElement.classList.contains('hidden')) {
                 radio.checked = true;
             }
         }
     }
 
+    // 動画コーデックのラベル更新
+    document.querySelectorAll('input[name="video_codec"]').forEach(input => {
+        const labelSpan = input.nextElementSibling;
+        if (labelSpan && labelSpan.tagName === 'SPAN') {
+            let text = labelSpan.textContent.replace(/[\[\]]/g, '').trim();
+            if (input.value === targetVideoCodec) {
+                text = `[ ${text} ]`;
+            }
+            labelSpan.textContent = text;
+        }
+    });
+
+    let targetAudioCodec = null;
     if (info.audio && info.audio.codec) {
         const c = info.audio.codec.toLowerCase();
-        let targetVal = null;
-        if (c.includes('mp4a') || c.includes('aac')) targetVal = 'aac';
-        else if (c.includes('opus')) targetVal = 'opus';
+        if (c.includes('mp4a') || c.includes('aac')) targetAudioCodec = 'aac';
+        else if (c.includes('opus')) targetAudioCodec = 'opus';
 
-        if (targetVal) {
-            const radio = document.querySelector(`input[name="audio_codec"][value="${targetVal}"]`);
+        if (targetAudioCodec) {
+            const radio = document.querySelector(`input[name="audio_codec"][value="${targetAudioCodec}"]`);
             if (radio) radio.checked = true;
         }
     }
+
+    // 音声コーデックのラベル更新
+    document.querySelectorAll('input[name="audio_codec"]').forEach(input => {
+        const labelSpan = input.nextElementSibling;
+        if (labelSpan && labelSpan.tagName === 'SPAN') {
+            let text = labelSpan.textContent.replace(/[\[\]]/g, '').trim();
+            if (input.value === targetAudioCodec) {
+                text = `[ ${text} ]`;
+            }
+            labelSpan.textContent = text;
+        }
+    });
 
     modalInfoContent.innerHTML = `
     <div class="space-y-3">
@@ -475,10 +511,34 @@ function updateFileInfo(info) {
 
     updateResolutionOptions();
 
-    // 解像度の自動選択
+    // 解像度のラベル更新（一致するものを[]で囲む）
     const width = info.video.width;
     const height = info.video.height;
     const longSide = Math.max(width, height);
+
+    const resolutions = {
+        '4k': 3840,
+        'fhd': 1920,
+        'hd': 1280,
+        'sd': 854
+    };
+
+    resolutionInputs.forEach(input => {
+        const labelSpan = input.nextElementSibling;
+        if (labelSpan && labelSpan.tagName === 'SPAN') {
+            let text = labelSpan.textContent.replace(/[\[\]]/g, '').trim(); // 既存の[]を削除
+            const target = resolutions[input.value];
+
+            // 解像度が一致する場合（許容誤差10px）
+            if (target && Math.abs(longSide - target) < 10) {
+                text = `[ ${text} ]`;
+            }
+            labelSpan.textContent = text;
+        }
+    });
+
+    // 解像度の自動選択
+    // width, height, longSide は上で定義済み
     let resValue = 'custom';
 
     // 解像度マッチングの許容範囲 (例: 1920x1080 vs 1920x1088)
@@ -589,14 +649,9 @@ function updateFileInfo(info) {
         if (index >= standardFpsValues.length) return;
 
         let baseValue = 0;
-        // インデックスを標準値にマッピング (DOM順序: 15, 24, 30, 60 を仮定)
-        // これはHTMLが変更されない限り少し脆弱だが効果的。
-        // あるいは、HTMLのデータ属性にベース値を保存することもできるが、今はリロードなしでHTMLを簡単に編集できない。
-        // 標準値を仮定する。
         if (index < standardFpsValues.length) {
             baseValue = standardFpsValues[index];
         } else {
-            // 何かが間違っている場合のフォールバック、現在の値を解析して最も近い標準に丸める
             baseValue = Math.round(parseFloat(input.value));
         }
 
@@ -611,7 +666,15 @@ function updateFileInfo(info) {
         const labelSpan = input.nextElementSibling;
         if (labelSpan && labelSpan.tagName === 'SPAN') {
             // 小数点以下2桁まで表示、整数の場合は末尾のゼロを削除
-            labelSpan.textContent = parseFloat(newValue.toFixed(2));
+            let text = parseFloat(newValue.toFixed(2)).toString();
+
+            // ソースFPSと一致する場合、[]で囲む
+            // 許容誤差: 0.01 (29.97 vs 29.970001 etc)
+            if (Math.abs(newValue - sourceFps) < 0.01) {
+                text = `[ ${text} ]`;
+            }
+
+            labelSpan.textContent = text;
         }
 
         const val = parseFloat(input.value);
@@ -814,6 +877,7 @@ worker.onmessage = (e) => {
         if (conversionStartTime) {
             const totalTime = (Date.now() - conversionStartTime) / 1000;
             // document.getElementById('progress-text').textContent = `完了! (処理時間: ${formatElapsedTime(totalTime)})`;
+            convertBtn.textContent = `変換完了 ${formatElapsedTime(totalTime)}`;
         }
 
         downloadFile(blob, outputExtension);
@@ -823,7 +887,24 @@ worker.onmessage = (e) => {
             document.getElementById('progress-container').classList.add('hidden');
             settingsArea.classList.remove('opacity-50', 'pointer-events-none');
             // Revert to "Start Conversion" with estimate
-            updateEstimate();
+            // updateEstimate(); // 完了表示を残すためにコメントアウト、または遅延させる
+            // ユーザーが次のアクションを起こすまで完了表示を残したいが、
+            // 3秒後にリセットされるロジックになっている。
+            // ユーザーの要望は「変換完了後、変換開始ボタンを...変えてください」なので、
+            // ここでテキストを変更し、リセットを遅らせるか、リセットしないか。
+            // 現在のロジックでは3秒後にリセットされる。
+            // リセットされると「変換開始...」に戻る。
+            // 完了時間を表示し続けたいなら、updateEstimateを呼ばない、あるいは
+            // updateEstimate内で完了状態を考慮する必要がある。
+            // しかし、新しいファイルを選んだり設定を変えたりしたらリセットされるべき。
+            // ここでは3秒後にリセットされる挙動を変更し、ユーザーが何か操作するまで残すか、
+            // あるいは単に3秒間表示するテキストを変更するか。
+            // 文脈からすると、完了直後の表示を変更したいと思われる。
+            // もし永続的に表示したいなら、3000msのsetTimeoutを削除すべき。
+            // しかし、次の変換のためにボタンを有効化する必要がある。
+            // ボタンは有効化しつつ、テキストは「変換完了」のままにするのが良いUXかも。
+            // でも updateEstimate が呼ばれると上書きされる。
+            // とりあえず3秒間の表示を変更する。
         }, 3000); // 3秒間完了時間を表示
     } else if (type === 'cancelled') {
         console.log("Transcoding cancelled by user");
