@@ -6,8 +6,8 @@ function workerBody() {
     async function loadLibrary() {
         if (MediaBunny) return;
         try {
-            // User provided URL: https://cdn.jsdelivr.net/npm/mediabunny/dist/modules/src/index.min.js
-            // Using dynamic import for ESM compatibility in classic worker
+            // ユーザー提供のURL: https://cdn.jsdelivr.net/npm/mediabunny/dist/modules/src/index.min.js
+            // クラシックワーカーでのESM互換性のために動的インポートを使用
             const module = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.25.1/+esm');
             MediaBunny = module.default || module;
             console.log("[Worker] MediaBunny loaded. Keys:", Object.keys(MediaBunny));
@@ -18,18 +18,18 @@ function workerBody() {
         }
     }
 
-    // Start loading immediately
+    // すぐに読み込みを開始
     libraryLoadPromise = loadLibrary();
 
     self.onmessage = async (e) => {
         const { type, data } = e.data;
 
-        // Ensure library is loaded
+        // ライブラリが読み込まれていることを確認
         if (!MediaBunny) {
             try {
                 await libraryLoadPromise;
             } catch (e) {
-                return; // Error already reported
+                return; // エラーは既に報告済み
             }
         }
 
@@ -71,11 +71,11 @@ function workerBody() {
             const videoTrack = tracks.find(t => t.type === 'video');
             const audioTrack = tracks.find(t => t.type === 'audio');
 
-            // Bitrate estimation
+            // ビットレート推定
             let videoBitrate = 0;
             let audioBitrate = 0;
 
-            // Helper to get bitrate from track stats
+            // トラック統計からビットレートを取得するヘルパー
             const getTrackBitrate = async (track) => {
                 if (track && track.computePacketStats) {
                     try {
@@ -102,12 +102,12 @@ function workerBody() {
                 }
             }
 
-            // Improve FPS detection
+            // FPS検出の改善
             if (videoTrack) {
                 console.log("[Worker] Video Track:", videoTrack);
                 if (!videoTrack.frameRate) {
                     console.log("[Worker] frameRate missing, trying to compute...");
-                    // Try to calculate FPS from stats if available
+                    // 利用可能な場合、統計からFPSを計算してみる
                     if (videoTrack.computePacketStats) {
                         try {
                             const stats = await videoTrack.computePacketStats();
@@ -245,7 +245,7 @@ function workerBody() {
                 output: output
             };
 
-            // --- Video Configuration ---
+            // --- 動画設定 ---
             // MediaBunnyはvideoオプションを指定しない場合、自動的にストリームをコピー（パススルー）します
             // audioOnlyモードの場合はvideoオプションを設定せず、かつvideoトラックを無視する必要があるが、
             // MediaBunnyの仕様上、Inputにvideoトラックがあるとデフォルトでパススルーしようとする可能性がある。
@@ -333,12 +333,12 @@ function workerBody() {
 
                     console.log("[Worker] Video: Transcoding mode enabled", { codec: encoderCodec, bitrate: targetBitrate });
 
-                    // Extract source video properties for explicit configuration
+                    // 明示的な設定のためにソースビデオのプロパティを抽出
                     let width = videoTrack.displayWidth || videoTrack.width;
                     let height = videoTrack.displayHeight || videoTrack.height;
                     let framerate = videoTrack.frameRate || 30;
 
-                    // --- Resolution Logic ---
+                    // --- 解像度ロジック ---
                     if (settings.resolution && settings.resolution !== 'keep') {
                         const resolutions = {
                             '4k': 3840,
@@ -349,31 +349,27 @@ function workerBody() {
                         const targetLongSide = resolutions[settings.resolution];
                         if (targetLongSide) {
                             const currentLongSide = Math.max(width, height);
-                            // Only scale down if target is smaller than current
+                            // ターゲットが現在より小さい場合のみ縮小
                             if (targetLongSide < currentLongSide) {
                                 const ratio = targetLongSide / currentLongSide;
                                 width = Math.round(width * ratio);
                                 height = Math.round(height * ratio);
-                                // Ensure multiples of 32 (as per UI text)
+                                // 32の倍数を確保（UIテキストに従う）
                                 width = Math.ceil(width / 32) * 32;
                                 height = Math.ceil(height / 32) * 32;
                             }
                         }
                     }
 
-                    // --- FPS Logic ---
+                    // --- FPSロジック ---
                     if (settings.fps && settings.fps !== 'keep') {
-                        const targetFPS = parseInt(settings.fps);
+                        const targetFPS = parseFloat(settings.fps);
                         if (!isNaN(targetFPS)) {
-                            // Smart FPS matching
-                            const isClose = (a, b) => Math.abs(a - b) < 0.1;
-
-                            if (targetFPS === 30 && isClose(framerate, 29.97)) {
-                                framerate = 29.97;
-                            } else if (targetFPS === 60 && isClose(framerate, 59.94)) {
-                                framerate = 59.94;
-                            } else if (targetFPS === 24 && isClose(framerate, 23.976)) {
-                                framerate = 23.976;
+                            // スマートFPSマッチング: ターゲットがソースに近い場合（1.0以内）、ソースを維持
+                            // これにより 29.97->30, 59.94->60, 23.976->24, そして 14.47->15 を処理
+                            if (Math.abs(targetFPS - framerate) < 1.0) {
+                                // 元のフレームレートを維持
+                                console.log(`[Worker] FPS close match: keeping source ${framerate} for target ${targetFPS}`);
                             } else {
                                 framerate = targetFPS;
                             }
@@ -386,14 +382,14 @@ function workerBody() {
                         width: width,
                         height: height,
                         framerate: framerate,
-                        bitrateMode: 'constant', // Enforce constant bitrate
-                        fit: 'fill' // Required when width/height are specified
+                        bitrateMode: 'constant', // 固定ビットレートを強制
+                        fit: 'fill' // width/heightが指定されている場合に必須
                     };
                     console.log("[Worker] Video configuration:", conversionOptions.video);
                 }
             }
 
-            // --- Audio Configuration ---
+            // --- 音声設定 ---
             // MediaBunnyはaudioオプションを指定しない場合、自動的にストリームをコピー（パススルー）します
             if (audioTrack && settings.audioCodec) {
                 if (settings.audioBitrate === -1 && isCodecCompatible(audioTrack.codec, settings.audioCodec)) {

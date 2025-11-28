@@ -1,4 +1,4 @@
-// --- Main Thread Logic ---
+// --- メインスレッドのロジック ---
 
 // Workerの初期化: workerBody関数を文字列化してBlob URLを作成
 const blob = new Blob([`(${workerBody.toString()})()`], { type: 'application/javascript' });
@@ -38,7 +38,7 @@ const fpsInputs = document.querySelectorAll('input[name="fps"]');
 const resolutionSection = document.getElementById('resolution-section');
 const fpsSection = document.getElementById('fps-section');
 const videoSettingsSection = document.getElementById('video-settings-section');
-const audioSettingsSection = document.querySelector('#video-settings-section + div'); // Audio settings is next sibling
+const audioSettingsSection = document.querySelector('#video-settings-section + div'); // 音声設定は次の兄弟要素
 const videoBitrateSection = document.getElementById('video-bitrate-section');
 const audioBitrateSection = document.getElementById('audio-bitrate-section');
 const resolutionValueDisplay = document.getElementById('resolution-value-display');
@@ -144,7 +144,7 @@ function updateEstimate() {
     if (!fileInfo) return;
 
     let targetVideoBitrate = 0;
-    // Only calculate video bitrate if not audio-only
+    // 音声のみでない場合のみ映像ビットレートを計算
     if (!audioOnlyToggle.checked && fileInfo.video) {
         targetVideoBitrate = parseInt(bitrateInput.value);
         if (targetVideoBitrate >= parseInt(bitrateInput.max)) {
@@ -172,7 +172,7 @@ function updateEstimate() {
     convertBtn.textContent = `変換開始 (予想サイズ: ~${estimatedSizeMB.toFixed(1)} MB)`;
 }
 
-// 2. Event Listeners
+// 2. イベントリスナー
 selectBtn.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
@@ -225,7 +225,7 @@ audioBitrateInput.addEventListener('input', (e) => {
     updateEstimate();
 });
 
-// --- New Logic for Simple Settings ---
+// --- 簡易設定モードの新しいロジック ---
 
 presetModeInputs.forEach(input => {
     input.addEventListener('change', (e) => {
@@ -303,7 +303,7 @@ function applyPreset(mode) {
         disableSection(fpsSection, false);
         disableSection(videoBitrateSection, false);
         disableSection(audioBitrateSection, false);
-        // Keep codec settings always enabled
+        // コーデック設定は常に有効のままにする
         return;
     }
 
@@ -311,7 +311,7 @@ function applyPreset(mode) {
     disableSection(fpsSection, true);
     disableSection(videoBitrateSection, true);
     disableSection(audioBitrateSection, true);
-    // Keep codec settings always enabled
+    // コーデック設定は常に有効のままにする
 
     let targetBitrate = originalBitrate;
     let targetFPS = 'keep';
@@ -352,7 +352,7 @@ function handleFile(file) {
     settingsArea.classList.add('opacity-50', 'pointer-events-none');
     convertBtn.disabled = true;
 
-    // Clear previous completion time when selecting new file
+    // 新しいファイルを選択したときに以前の完了時間をクリアする
     // document.getElementById('progress-text').textContent = '処理中: 0%';
     conversionStartTime = null;
 
@@ -361,7 +361,7 @@ function handleFile(file) {
     worker.postMessage({ type: 'inspect', data: { file: file } });
 }
 
-// Helper function to get user-friendly codec name
+// ユーザーフレンドリーなコーデック名を取得するヘルパー関数
 function getCodecDisplayName(codec) {
     if (!codec) return '不明';
     const c = codec.toLowerCase();
@@ -411,13 +411,13 @@ function updateFileInfo(info) {
     audioBitrateMax.textContent = Math.round(maxAudioBitrate / 1000) + "k";
 
     // コンテナ（出力フォーマット）の自動選択
-    let targetFormat = 'mp4'; // Default
+    let targetFormat = 'mp4'; // デフォルト
     if (info.container && info.container.toLowerCase().includes('webm')) {
         targetFormat = 'webm';
     } else if (selectedFile && selectedFile.name.toLowerCase().endsWith('.webm')) {
         targetFormat = 'webm';
     }
-    // MOV or others default to mp4
+    // MOVなどはmp4をデフォルトにする
     const formatRadio = document.querySelector(`input[name="output_format"][value="${targetFormat}"]`);
     if (formatRadio) formatRadio.checked = true;
 
@@ -475,28 +475,28 @@ function updateFileInfo(info) {
 
     updateResolutionOptions();
 
-    // Resolution Auto-Selection
+    // 解像度の自動選択
     const width = info.video.width;
     const height = info.video.height;
     const longSide = Math.max(width, height);
     let resValue = 'custom';
 
-    // Tolerance for resolution matching (e.g. 1920x1080 vs 1920x1088)
+    // 解像度マッチングの許容範囲 (例: 1920x1080 vs 1920x1088)
     if (Math.abs(longSide - 3840) < 10) resValue = '4k';
     else if (Math.abs(longSide - 1920) < 10) resValue = 'fhd';
     else if (Math.abs(longSide - 1280) < 10) resValue = 'hd';
     else if (Math.abs(longSide - 854) < 10) resValue = 'sd';
 
-    // FPS Auto-Selection
+    // FPSの自動選択
     const fps = info.video.framerate || 30;
     let fpsValue = 'custom';
 
-    // Specific logic for 15, 30, 60 (handling ~29.97 etc)
+    // 15, 30, 60 の特定のロジック (~29.97 などの処理)
     if (Math.abs(fps - 15) < 1.0 || Math.abs(fps - 14.47) < 0.1) fpsValue = '15';
     else if (Math.abs(fps - 30) < 1.0 || Math.abs(fps - 29.97) < 0.1) fpsValue = '30';
     else if (Math.abs(fps - 60) < 1.0 || Math.abs(fps - 59.94) < 0.1) fpsValue = '60';
     else {
-        // Fallback to standard check if not matched above
+        // 上記で一致しない場合は標準チェックにフォールバック
         const standardFps = [15, 24, 30, 60];
         for (const sFps of standardFps) {
             if (Math.abs(fps - sFps) < 0.5) {
@@ -506,7 +506,7 @@ function updateFileInfo(info) {
         }
     }
 
-    // Update Custom Labels
+    // カスタムラベルの更新
     const resCustomText = document.getElementById('res-custom-text');
     if (resCustomText) {
         resCustomText.textContent = `カスタム (${width}x${height})`;
@@ -516,19 +516,19 @@ function updateFileInfo(info) {
         fpsCustomText.textContent = `カスタム (${fps.toFixed(2)})`;
     }
 
-    // Apply selections
+    // 選択の適用
     const resInput = document.querySelector(`input[name="resolution"][value="${resValue}"]`);
     if (resInput && !resInput.disabled) {
         resInput.checked = true;
     } else {
-        // Fallback if calculated resolution is disabled (e.g. 4K on small video? logic in updateResolutionOptions handles max)
-        // If custom is selected but disabled (shouldn't happen for custom), fallback to max allowed
+        // 計算された解像度が無効な場合のフォールバック (例: 小さい動画での4K? updateResolutionOptionsのロジックで最大値を処理)
+        // カスタムが選択されているが無効な場合（カスタムでは起こらないはず）、許可された最大値にフォールバック
         if (resValue !== 'custom') {
             const maxRes = getMaxAllowedResolution();
             const fallbackInput = document.querySelector(`input[name="resolution"][value="${maxRes}"]`);
             if (fallbackInput) fallbackInput.checked = true;
         } else {
-            // If custom is somehow disabled or we want to force custom
+            // カスタムが何らかの理由で無効な場合、またはカスタムを強制したい場合
             const customInput = document.querySelector(`input[name="resolution"][value="custom"]`);
             if (customInput) customInput.checked = true;
         }
@@ -541,36 +541,88 @@ function updateFileInfo(info) {
         if (customFpsInput) customFpsInput.checked = true;
     }
 
-    // Default to Custom preset mode if we are setting specific values
-    // But if it matches a preset, maybe we should select that? 
-    // For now, let's stick to "Custom" (Freedom) mode to avoid confusion, or keep it simple.
-    // The requirement says: "If the video's resolution/FPS matches a standard preset, bold that specific preset option."
-    // It doesn't explicitly say to change the "Simple Settings Mode" to Low/Mid/High.
-    // So we select "Custom" (Freedom) in Simple Settings to allow these specific selections.
+    // 特定の値を設定している場合は、デフォルトでカスタムプリセットモードにする
+    // しかし、プリセットと一致する場合は、それを選択すべきか？ 
+    // 今のところ、混乱を避けるために「カスタム」（自由）モードに固執するか、シンプルに保つ。
+    // 要件には次のようにある：「動画の解像度/FPSが標準プリセットと一致する場合、その特定のプリセットオプションを太字にする。」
+    // 「簡易設定モード」を低/中/高に変更するとは明示されていない。
+    // したがって、これらの特定の選択を可能にするために、簡易設定で「カスタム」（自由）を選択する。
     const customPreset = document.querySelector('input[name="preset_mode"][value="custom"]');
     if (customPreset) {
         customPreset.checked = true;
-        applyPreset('custom'); // This enables all sections
+        applyPreset('custom'); // これによりすべてのセクションが有効になる
     }
 
-    // Update Resolution Description
+    // 解像度説明の更新
     const resDesc = document.getElementById('resolution-desc');
     if (resDesc && info.video) {
         resDesc.textContent = `現在のサイズ：${info.video.width}px x ${info.video.height}px (元の縦横比を維持し、長辺を基準に32の倍数で調整されます。)`;
     }
 
-    // Disable FPS options higher than source
+    // ソースより高いFPSオプションを無効にする
     const sourceFps = info.video ? (info.video.framerate || 30) : 30;
-    fpsInputs.forEach(input => {
-        if (input.value === 'keep') return; // Always enable 'keep'
-        const val = parseInt(input.value);
+    // ソースFPS系列に基づいてFPSオプションを更新
+    const standardFpsValues = [15, 24, 30, 60];
+    let fpsRatio = 1.0;
+
+    // 「系列」を決定するために最も近い標準FPSを見つける
+    let closestStandard = 30;
+    let minDiff = Infinity;
+
+    for (const sFps of standardFpsValues) {
+        const diff = Math.abs(sourceFps - sFps);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestStandard = sFps;
+        }
+    }
+
+    // ソースが標準に近いが正確な整数でない場合（例: 29.97 vs 30）、比率を計算する
+    // 30.0 が 29.99999 になるのを避けるために小さな閾値を使用する
+    if (minDiff < 1.0 && minDiff > 0.001) {
+        fpsRatio = sourceFps / closestStandard;
+    }
+
+    // ラベルと値を更新
+    fpsInputs.forEach((input, index) => {
+        // Skip non-numeric options (keep, custom)
+        if (index >= standardFpsValues.length) return;
+
+        let baseValue = 0;
+        // インデックスを標準値にマッピング (DOM順序: 15, 24, 30, 60 を仮定)
+        // これはHTMLが変更されない限り少し脆弱だが効果的。
+        // あるいは、HTMLのデータ属性にベース値を保存することもできるが、今はリロードなしでHTMLを簡単に編集できない。
+        // 標準値を仮定する。
+        if (index < standardFpsValues.length) {
+            baseValue = standardFpsValues[index];
+        } else {
+            // 何かが間違っている場合のフォールバック、現在の値を解析して最も近い標準に丸める
+            baseValue = Math.round(parseFloat(input.value));
+        }
+
+        const newValue = baseValue * fpsRatio;
+
+        // value属性を更新
+        input.value = newValue;
+
+        // ラベルテキストを更新
+        // HTML構造: <label><input ...><span ...>...</span></label>
+        // input.nextElementSibling は span 要素そのもの
+        const labelSpan = input.nextElementSibling;
+        if (labelSpan && labelSpan.tagName === 'SPAN') {
+            // 小数点以下2桁まで表示、整数の場合は末尾のゼロを削除
+            labelSpan.textContent = parseFloat(newValue.toFixed(2));
+        }
+
+        const val = parseFloat(input.value);
         const label = input.parentElement;
-        if (val > sourceFps) {
+        // 29.97fpsソースに対して30fps、59.94fpsソースに対して60fpsなどを選択できるようにする
+        if (val > sourceFps + 0.5) {
             input.disabled = true;
             label.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-100', 'dark:bg-slate-800');
             label.classList.remove('cursor-pointer', 'hover:bg-slate-200');
             if (input.checked) {
-                // If the disabled option was checked (unlikely on new file, but possible), switch to 'keep'
+                // 無効なオプションがチェックされていた場合（新しいファイルではありえないが、可能性はある）、'keep' に切り替える
                 const keepInput = document.querySelector('input[name="fps"][value="keep"]');
                 if (keepInput) keepInput.checked = true;
             }
@@ -582,7 +634,7 @@ function updateFileInfo(info) {
     });
 
     updateEstimate();
-    updateBoldSelection(); // Call to bold the selected options
+    updateBoldSelection(); // 選択されたオプションを太字にするために呼び出す
     updateDisplayValues();
 }
 
@@ -604,7 +656,7 @@ function updateDisplayValues() {
         else if (selectedRes === 'hd') targetLongSide = 1280;
         else if (selectedRes === 'sd') targetLongSide = 854;
 
-        // If target is smaller than source, scale down
+        // ターゲットがソースより小さい場合、縮小する
         if (targetLongSide < longSide) {
             if (width >= height) {
                 width = targetLongSide;
@@ -613,9 +665,9 @@ function updateDisplayValues() {
                 height = targetLongSide;
                 width = Math.round(height * aspectRatio);
             }
-            // Ensure multiple of 2 (or 32 as per description, but standard is usually 2 or 4 for codecs)
-            // The description says "multiple of 32", let's respect that if possible, or at least even numbers.
-            // Let's stick to simple scaling for display purposes, maybe round to 2.
+            // 2の倍数（または説明にあるように32の倍数だが、コーデックの標準は通常2または4）を確保する
+            // 説明には「32の倍数」とあるので、可能ならそれを尊重するか、少なくとも偶数にする。
+            // 表示目的のために単純なスケーリングに固執し、おそらく2に丸める。
             width = Math.round(width / 2) * 2;
             height = Math.round(height / 2) * 2;
         }
@@ -629,17 +681,22 @@ function updateDisplayValues() {
     const selectedFps = document.querySelector('input[name="fps"]:checked')?.value || 'keep';
 
     if (selectedFps !== 'keep') {
-        fps = parseFloat(selectedFps);
+        const targetFps = parseFloat(selectedFps);
+        // If the target FPS is close to the source FPS (e.g. 30 vs 29.97, or 15 vs 14.47),
+        // use the source FPS for display to indicate we are maintaining the original timing.
+        if (Math.abs(targetFps - fps) >= 1.0) {
+            fps = targetFps;
+        }
     }
 
     if (fpsValueDisplay) {
-        // format to max 2 decimal places, e.g. 29.97, 30, 60
+        // 最大2桁の小数にフォーマット、例: 29.97, 30, 60
         fpsValueDisplay.textContent = `${parseFloat(fps.toFixed(2))}fps`;
     }
 }
 
 function updateBoldSelection() {
-    // Helper to bold the label of the checked input and unbold others
+    // チェックされた入力のラベルを太字にし、他を太字解除するヘルパー
     const updateBold = (name) => {
         document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
             const labelSpan = input.nextElementSibling;
@@ -656,7 +713,7 @@ function updateBoldSelection() {
     updateBold('preset_mode');
 }
 
-// Add listeners to update bolding when user changes selection
+// ユーザーが選択を変更したときに太字を更新するリスナーを追加
 document.querySelectorAll('input[name="resolution"], input[name="fps"], input[name="preset_mode"]').forEach(input => {
     input.addEventListener('change', () => {
         updateBoldSelection();
@@ -669,13 +726,13 @@ document.querySelectorAll('input[name="resolution"], input[name="fps"], input[na
 
 
 
-// Helper function to format elapsed time [mm:ss]
+// 経過時間をフォーマットするヘルパー関数 [mm:ss]
 function formatElapsedTime(seconds) {
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `[${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
 }
-// Update elapsed time display
+// 経過時間表示を更新
 function updateElapsedTime() {
     if (!conversionStartTime) return;
     const elapsed = (Date.now() - conversionStartTime) / 1000;
@@ -695,7 +752,7 @@ convertBtn.addEventListener('click', () => {
     // document.getElementById('progress-text').textContent = "処理中: 0%";
     cancelBtn.textContent = "中断 (0%)";
 
-    // Show progress % on button during conversion
+    // 変換中にボタンに進行状況%を表示
     convertBtn.textContent = "処理中: 0%";
 
     const vBitrate = parseInt(bitrateInput.value) >= parseInt(bitrateInput.max) ? -1 : parseInt(bitrateInput.value);
@@ -714,7 +771,7 @@ convertBtn.addEventListener('click', () => {
         resolution: document.querySelector('input[name="resolution"]:checked')?.value || 'sd',
         fps: document.querySelector('input[name="fps"]:checked')?.value || 'keep'
     };
-    // Start elapsed time tracking
+    // 経過時間の追跡を開始
     conversionStartTime = Date.now();
 
     elapsedTimer = setInterval(updateElapsedTime, 1000);
