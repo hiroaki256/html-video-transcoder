@@ -542,10 +542,20 @@ function getCodecDisplayName(codec) {
     return codec;
 }
 
+function getContainerDisplayName(mimeType) {
+    if (!mimeType) return 'Unknown';
+    const lower = mimeType.toLowerCase();
+    if (lower.includes('mp4')) return 'MP4';
+    if (lower.includes('webm')) return 'WebM';
+    if (lower.includes('quicktime')) return 'MOV';
+    if (lower.includes('matroska') || lower.includes('mkv')) return 'MKV';
+    return mimeType;
+}
+
 function updateFileInfo(info) {
     console.log("[UI] updateFileInfo received:", info);
     fileInfo = info;
-    fileStatusDisplay.textContent = `${info.container} | ${(info.fileSize / 1024 / 1024).toFixed(1)} MB`;
+    fileStatusDisplay.textContent = `${getContainerDisplayName(info.container)} | ${(info.fileSize / 1024 / 1024).toFixed(1)} MB`;
     settingsArea.classList.remove('opacity-50', 'pointer-events-none');
     convertBtn.disabled = false;
 
@@ -656,7 +666,7 @@ function updateFileInfo(info) {
 
     modalInfoContent.innerHTML = `
     <div class="space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">コンテナ</span><span class="font-medium text-slate-800 dark:text-white">${info.container}</span></div>
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">コンテナ</span><span class="font-medium text-slate-800 dark:text-white">${getContainerDisplayName(info.container)}</span></div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">ファイルサイズ</span><span class="font-medium text-slate-800 dark:text-white">${(info.fileSize / 1024 / 1024).toFixed(2)} MB</span></div>
         <div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-sm text-slate-500 dark:text-slate-400">再生時間</span><span class="font-medium text-slate-800 dark:text-white">${info.duration.toFixed(2)} 秒</span></div>
 

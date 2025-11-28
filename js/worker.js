@@ -60,7 +60,8 @@ function workerBody() {
                 formats: [
                     new MediaBunny.Mp4InputFormat(),
                     new MediaBunny.WebMInputFormat(),
-                    new MediaBunny.QuickTimeInputFormat()
+                    new MediaBunny.QuickTimeInputFormat(),
+                    new MediaBunny.MatroskaInputFormat()
                 ]
             });
             console.log("[Worker] inspectFile: Calling getTracks and computeDuration");
@@ -131,8 +132,17 @@ function workerBody() {
                 }
             }
 
+            let container = file.type;
+            if (!container && file.name) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'mkv') container = 'video/x-matroska';
+                else if (ext === 'mov') container = 'video/quicktime';
+                else if (ext === 'mp4') container = 'video/mp4';
+                else if (ext === 'webm') container = 'video/webm';
+            }
+
             const result = {
-                container: file.type || 'Unknown',
+                container: container || 'Unknown',
                 duration: duration,
                 fileSize: file.size,
                 video: videoTrack ? {
@@ -186,7 +196,8 @@ function workerBody() {
                 formats: [
                     new MediaBunny.Mp4InputFormat(),
                     new MediaBunny.WebMInputFormat(),
-                    new MediaBunny.QuickTimeInputFormat()
+                    new MediaBunny.QuickTimeInputFormat(),
+                    new MediaBunny.MatroskaInputFormat()
                 ]
             });
 
@@ -226,6 +237,10 @@ function workerBody() {
                     outputFormat = new MediaBunny.WebMOutputFormat();
                     outputMimeType = 'video/webm';
                     outputExtension = 'webm';
+                } else if (settings.format === 'mkv') {
+                    outputFormat = new MediaBunny.MkvOutputFormat();
+                    outputMimeType = 'video/x-matroska';
+                    outputExtension = 'mkv';
                 } else {
                     outputFormat = new MediaBunny.Mp4OutputFormat();
                     outputMimeType = 'video/mp4';
