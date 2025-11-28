@@ -403,7 +403,7 @@ function workerBody() {
                     // - Opus: 一般的にAACより高速、WebM推奨
                     // - AAC (mp4a.40.2): MP4標準、広くハードウェアサポート
                     const targetBitrate = settings.audioBitrate === -1 ? (settings.originalAudioBitrate || 128000) : settings.audioBitrate;
-                    let codec = settings.audioCodec === 'opus' ? 'opus' : 'mp4a.40.2';
+                    let codec = settings.audioCodec === 'opus' ? 'opus' : 'aac';
 
                     console.log("[Worker] Audio: Transcoding mode enabled", { codec: codec, bitrate: targetBitrate });
                     conversionOptions.audio = {
