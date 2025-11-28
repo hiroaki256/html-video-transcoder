@@ -301,6 +301,23 @@ function applyPreset(mode) {
         }
     };
 
+    const getStandardFpsKey = (fps) => {
+        if (Math.abs(fps - 15) < 1.0 || Math.abs(fps - 14.47) < 0.1) return '15';
+        if (Math.abs(fps - 24) < 1.0 || Math.abs(fps - 23.976) < 0.1) return '24';
+        if (Math.abs(fps - 30) < 1.0 || Math.abs(fps - 29.97) < 0.1) return '30';
+        if (Math.abs(fps - 60) < 1.0 || Math.abs(fps - 59.94) < 0.1) return '60';
+        return 'keep';
+    };
+
+    const getResolutionKey = (width, height) => {
+        const longSide = Math.max(width, height);
+        if (Math.abs(longSide - 3840) < 10) return '4k';
+        if (Math.abs(longSide - 1920) < 10) return 'fhd';
+        if (Math.abs(longSide - 1280) < 10) return 'hd';
+        if (Math.abs(longSide - 854) < 10) return 'sd';
+        return 'keep';
+    };
+
     const setRadio = (name, value) => {
         let targetValue = value;
         if (name === 'resolution') {
@@ -329,8 +346,8 @@ function applyPreset(mode) {
         audioBitrateInput.value = maxAudioBitrate;
         audioBitrateInput.dispatchEvent(new Event('input'));
 
-        setRadio('resolution', 'keep');
-        setRadio('fps', 'keep');
+        setRadio('resolution', getResolutionKey(fileInfo.video.width, fileInfo.video.height));
+        setRadio('fps', getStandardFpsKey(originalFPS));
 
         // コーデック設定は常に有効のままにする
         return;
@@ -345,14 +362,6 @@ function applyPreset(mode) {
     let targetBitrate = originalBitrate;
     let targetFPS = 'keep';
     let targetResolution = 'sd';
-
-    const getStandardFpsKey = (fps) => {
-        if (Math.abs(fps - 15) < 1.0 || Math.abs(fps - 14.47) < 0.1) return '15';
-        if (Math.abs(fps - 24) < 1.0 || Math.abs(fps - 23.976) < 0.1) return '24';
-        if (Math.abs(fps - 30) < 1.0 || Math.abs(fps - 29.97) < 0.1) return '30';
-        if (Math.abs(fps - 60) < 1.0 || Math.abs(fps - 59.94) < 0.1) return '60';
-        return 'keep';
-    };
 
     if (mode === 'low') {
         targetBitrate = Math.max(1000000, originalBitrate / 4);
